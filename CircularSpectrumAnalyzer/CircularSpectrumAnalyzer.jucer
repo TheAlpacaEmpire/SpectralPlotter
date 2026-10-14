@@ -2,7 +2,7 @@
 
 <JUCERPROJECT id="dwIt3M" name="SpectralPlotter" projectType="guiapp"
               useAppConfig="0" addUsingNamespaceToJuceHeader="0" jucerFormatVersion="1"
-              version="1.0.0" bundleIdentifier="com.spectralplotter.app"
+              version="1.1.0" bundleIdentifier="com.spectralplotter.app"
               companyName="Spectral Plotter" companyCopyright="Copyright (C) 2026, GPLv3"
               displaySplashScreen="0" reportAppUsage="0" splashScreenColour="Dark">
   <MAINGROUP id="QkzGc5" name="SpectralPlotter">
