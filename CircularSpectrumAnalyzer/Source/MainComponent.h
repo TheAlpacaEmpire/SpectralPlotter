@@ -12,6 +12,7 @@
 #include "Labels/LabelPlanner.h"
 #include "UI/ScreenLayout.h"
 #include "UI/ScreenTextBuilder.h"
+#include "UI/AppSettings.h"
 
 class MainComponent : public juce::Component,
                       public juce::Timer,
@@ -26,7 +27,7 @@ public:
     // component painting at all — the message thread only handles input and
     // model updates.
     void timerCallback() override;
-    bool keyPressed (const juce::KeyPress&) override;   // N/S/L/T/F/[/]/-/= commands
+    bool keyPressed (const juce::KeyPress&) override;   // N/S/L/T/I/F/R/[/]/-/= commands
     void mouseDown (const juce::MouseEvent&) override;  // begin header window-drag
     void mouseDrag (const juce::MouseEvent&) override;  // move the borderless window
     void mouseUp (const juce::MouseEvent&) override;    // command-line / control hotspots
@@ -37,6 +38,11 @@ public:
     // corners, where the header controls live), so hit-testing raw mouse coords against
     // layout rects missed the drawn [+]/[x] by ~8-9 px. Same mapping as the shader.
     juce::Point<float> toScenePoint (juce::Point<float> p) const noexcept;
+
+    // Settings persistence (message thread). The app restores the window once it is on
+    // the desktop, and saves everything on shutdown.
+    void restoreWindowState();
+    void saveSettings();
 
     // OpenGLRenderer (GL thread)
     void newOpenGLContextCreated() override;
@@ -101,6 +107,17 @@ private:
     };
 
     void reseed();       // picks a new random seed and rebuilds terrain + river from scratch
+    void loadSettings(); // applies saved knobs / palette / audio source (constructor)
+
+    // Two-step factory reset (R key / [ RESET ] control): the first call arms it for
+    // resetConfirmMs, a second call within that window restores the default look.
+    void requestReset();
+    void resetToDefaults();
+    static constexpr juce::uint32 resetConfirmMs = 3000;
+    std::atomic<juce::uint32> resetArmedUntil { 0 };   // ms counter; read by the GL thread
+    std::array<float, ScreenLayout::numCtrl> knobDefaults {};   // captured before loadSettings
+
+    AppSettings settings;
 
     void publishSnapshot();                                        // message thread
     // These GL-thread builders share one ScreenLayout, computed once per frame in

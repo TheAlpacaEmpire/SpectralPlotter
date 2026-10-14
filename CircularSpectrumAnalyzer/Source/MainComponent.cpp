@@ -8,7 +8,7 @@
 MainComponent::MainComponent()
 {
     setSize (624, 724);   // ~600 px map plot + header band + telemetry/command rows
-    setWantsKeyboardFocus (true);   // G = CPU/GPU scene toggle, S = scene screenshot
+    setWantsKeyboardFocus (true);   // single-key commands (see keyPressed)
 
     terrain.reseed ((uint32_t) std::random_device{}());
     river.buildPath (terrain.getBaseHeightField(), terrain.getSeed());
@@ -34,9 +34,15 @@ MainComponent::MainComponent()
     // Continuous repainting lets renderOpenGL() run WITHOUT holding the MessageManager
     // lock (JUCE only takes that lock on frames where a component repaint is pending).
     // Driving frames with repaint()/triggerRepaint() instead would lock the message
-    // thread for the whole heavy scene render every frame â€” spinning cursor, dead clicks.
+    // thread for the whole heavy scene render every frame — spinning cursor, dead clicks.
     glContext.setContinuousRepainting (true);
     glContext.attachTo (*this);
+
+    for (int i = ScreenLayout::ctFirstSlider; i < ScreenLayout::numCtrl; ++i)
+        if (const Knob k = knobFor (i); k.val != nullptr)
+            knobDefaults[(size_t) i] = k.val->load();
+
+    loadSettings();   // knobs, palette, audio source — before capture starts
 
     audio.start();
     startTimerHz (60);
@@ -44,7 +50,7 @@ MainComponent::MainComponent()
 
 MainComponent::~MainComponent()
 {
-    glContext.detach();   // blocks until the GL thread is done â€” must precede member teardown
+    glContext.detach();   // blocks until the GL thread is done — must precede member teardown
     stopTimer();
 }
 
@@ -160,7 +166,7 @@ void MainComponent::toggleFullscreen()
             disp = displays.getPrimaryDisplay();
 
         if (disp != nullptr)
-            window->setBounds (disp->totalArea);   // whole screen, taskbar included
+            window->setBounds (disp->logicalBounds.toNearestInt());   // whole screen, taskbar included
 
         fullscreenFlag.store (true);
     }
@@ -186,6 +192,7 @@ bool MainComponent::keyPressed (const juce::KeyPress& key)
         case 'l': hueLocked = ! hueLocked;      return true;
         case 't': cycleTheme();                 return true;   // next palette
         case 'i': cycleInput();                 return true;   // next audio source (device)
+        case 'r': requestReset();               return true;   // factory reset (press twice)
         case 'f': toggleFullscreen();           return true;   // true (kiosk) fullscreen
         case '[': stepPersist (-0.005f);        return true;
         case ']': stepPersist (+0.005f);        return true;
@@ -264,6 +271,7 @@ void MainComponent::mouseUp (const juce::MouseEvent& e)
     {
         if      (L.seedHotspot()       .contains (p)) reseed();
         else if (L.lockHotspot()       .contains (p)) hueLocked = ! hueLocked;
+        else if (L.resetHotspot()      .contains (p)) requestReset();
         else if (L.persistDownHotspot().contains (p)) stepPersist (-0.005f);
         else if (L.persistUpHotspot()  .contains (p)) stepPersist (+0.005f);
         else if (L.bloomDownHotspot()  .contains (p)) stepBloom (-0.05f);
@@ -275,6 +283,7 @@ void MainComponent::mouseUp (const juce::MouseEvent& e)
         else if (L.ctrlAction[ScreenLayout::ctLock]  .contains (p)) hueLocked = ! hueLocked;
         else if (L.ctrlAction[ScreenLayout::ctTheme] .contains (p)) cycleTheme();
         else if (L.ctrlAction[ScreenLayout::ctInput] .contains (p)) cycleInput();
+        else if (L.ctrlAction[ScreenLayout::ctReset] .contains (p)) requestReset();
         else                                                        // value sliders
         {
             for (int i = ScreenLayout::ctFirstSlider; i < ScreenLayout::numCtrl; ++i)
@@ -515,6 +524,7 @@ void MainComponent::renderOpenGL()
             }
             in.shaderError = sceneRenderer.getLastShaderError().isNotEmpty();
             in.fullscreen  = fullscreenFlag.load();   // published by the message thread
+            in.resetArmed  = juce::Time::getMillisecondCounter() < resetArmedUntil.load();
             screenText.persistShown = persistTrimVal.load();
             screenText.bloomShown   = bloomTrimVal.load();
             screenText.threshShown  = bloomThreshVal.load();
@@ -531,7 +541,7 @@ void MainComponent::renderOpenGL()
         }
     }
 
-    // Rolling scene-section timing for the HUD (CPU cost only â€” GL calls are async)
+    // Rolling scene-section timing for the HUD (CPU cost only — GL calls are async)
     sceneMsAccum += juce::Time::highResolutionTicksToSeconds (
                         juce::Time::getHighResolutionTicks() - sceneT0) * 1000.0;
     if (++sceneMsCount >= 60)
@@ -553,23 +563,23 @@ void MainComponent::renderOpenGL()
 //==============================================================================
 // Snapshot + control-panel trims -> post-FX parameters. Extracted from renderOpenGL to
 // keep that method an orchestrator; behaviour is unchanged. GL thread.
-PostFXPipeline::Params MainComponent::mapPostFXParams (const RenderSnapshot& glLocal, float rs,
+PostFXPipeline::Params MainComponent::mapPostFXParams (const RenderSnapshot& snap, float rs,
                                                        int wPx, int hPx)
 {
     PostFXPipeline::Params p;
-    const float energy = glLocal.feats.overallEnergy;
-    p.time           = glLocal.animTime;
-    p.phosphorTint   = glLocal.livePhosphor;
-    p.grainTint      = glLocal.liveGrain;
+    const float energy = snap.feats.overallEnergy;
+    p.time           = snap.animTime;
+    p.phosphorTint   = snap.livePhosphor;
+    p.grainTint      = snap.liveGrain;
     // Master CRT-FX slider scales convergence + halation; per-theme multipliers and
     // the halo tint ride the crossfaded live-theme values.
     const float crt  = crtTrimVal.load();
-    p.convergencePx    = 4.0f * rs * crt * glLocal.liveConv;   // ~2px edge split at 0.5, per-theme scaled
-    p.halationIntensity = 0.55f * crt * glLocal.liveHal;
-    p.halationTint     = glLocal.livePhosphor;
+    p.convergencePx    = 4.0f * rs * crt * snap.liveConv;   // ~2px edge split at 0.5, per-theme scaled
+    p.halationIntensity = 0.55f * crt * snap.liveHal;
+    p.halationTint     = snap.livePhosphor;
     // Beat-reactive effects, also under the master CRT-FX slider. Kept subtle.
-    p.rollOffset       = glLocal.crtRoll * 0.025f * crt;     // gentle vertical-hold nudge
-    p.degauss          = glLocal.crtDegauss * crt;
+    p.rollOffset       = snap.crtRoll * 0.025f * crt;     // gentle vertical-hold nudge
+    p.degauss          = snap.crtDegauss * crt;
     p.retrace          = 0.010f * crt;                       // peak warp of the slow sweep band
     // PERSIST trim shifts the audio-driven decay; BLOOM trim scales intensity.
     // Decay is specified per 60 Hz frame and converted to this GL frame's real delta, so
@@ -592,9 +602,9 @@ PostFXPipeline::Params MainComponent::mapPostFXParams (const RenderSnapshot& glL
     effDecay.store (decay60);                    // telemetry shows the per-60 Hz value
     effBloom.store (p.bloomIntensity);
     p.energy         = energy;                                                // excites the phosphor grain
-    p.jitterGate     = 0.9875f - glLocal.feats.bassEnergy * 0.01f;            // bass = more line tears
+    p.jitterGate     = 0.9875f - snap.feats.bassEnergy * 0.01f;            // bass = more line tears
     p.sparkAmount    = juce::jlimit (0.0f, 0.04f,                             // louder/bassier = more discharges
-                                     0.006f + energy * 0.018f + glLocal.feats.bassEnergy * 0.016f);
+                                     0.006f + energy * 0.018f + snap.feats.bassEnergy * 0.016f);
     p.driftAmpPx     = 0.6f * rs;
     p.jitterAmpPx    = 4.0f * rs;
     p.scanSpacingPx  = scanSpacingVal.load() * rs;
@@ -840,7 +850,7 @@ SceneRenderer::RibbonBatch MainComponent::buildRiverRibbons (const RenderSnapsho
         addStroke (shifted (flatR, -1.5f), 1.2f, blueC);
     }
 
-    // === Electronic interference â€” drawn last, over the river, like the CPU path ===
+    // === Electronic interference — drawn last, over the river, like the CPU path ===
     auto addRect = [&] (float x, float y, float w, float h, juce::Colour col)
     {
         const int first = (int) b.verts.size();
@@ -1030,11 +1040,13 @@ void MainComponent::saveSceneScreenshot (juce::OpenGLFrameBuffer& fbo)
                          (size_t) w * sizeof (juce::PixelARGB));
     }
 
-    auto dir = juce::File::getSpecialLocation (juce::File::currentApplicationFile)
-                   .getParentDirectory().getChildFile ("Screenshots");
+    // Pictures\Spectral Plotter — the exe's own folder may be read-only (Program Files).
+    auto dir = juce::File::getSpecialLocation (juce::File::userPicturesDirectory)
+                   .getChildFile ("Spectral Plotter");
     dir.createDirectory();
     auto file = dir.getChildFile ("scene_"
-                    + juce::Time::getCurrentTime().formatted ("%Y%m%d_%H%M%S") + ".png");
+                    + juce::Time::getCurrentTime().formatted ("%Y%m%d_%H%M%S") + ".png")
+                   .getNonexistentSibling();
 
     juce::FileOutputStream os (file);
     if (os.openedOk())
@@ -1163,7 +1175,7 @@ void MainComponent::timerCallback()
     // repaint() every frame: with the GL context attached that would force each frame
     // to render under the MessageManager lock, starving the message thread. Instead the
     // scene free-runs (continuous repainting) and we only refresh the HUD/button layer a
-    // few times a second â€” enough for the neon hue to track the music.
+    // few times a second — enough for the neon hue to track the music.
     publishSnapshot();
 
     // Rolling message-thread update cost for the HUD
@@ -1178,4 +1190,113 @@ void MainComponent::timerCallback()
 
     // No repaint: component painting is disabled — every visible pixel comes
     // from the free-running GL thread.
+}
+
+//==============================================================================
+// Settings persistence. Each knob is stored under a stable key and clamped back into its
+// knobFor() range on load, so ranges can change between versions without breaking old files.
+namespace
+{
+    struct KnobKey { int ctrl; const char* key; };
+    constexpr KnobKey kKnobKeys[] = {
+        { ScreenLayout::ctPersist, "persist" }, { ScreenLayout::ctBloom,   "bloom"   },
+        { ScreenLayout::ctThresh,  "thresh"  }, { ScreenLayout::ctScan,    "scan"    },
+        { ScreenLayout::ctCrt,     "crt"     }, { ScreenLayout::ctShade,   "shade"   },
+        { ScreenLayout::ctHatch,   "hatch"   }, { ScreenLayout::ctStipple, "stipple" },
+        { ScreenLayout::ctSlope,   "slope"   },
+    };
+}
+
+void MainComponent::loadSettings()
+{
+    auto& p = settings.props();
+
+    for (const auto& kk : kKnobKeys)
+    {
+        const Knob k = knobFor (kk.ctrl);
+        if (k.val != nullptr)
+            k.val->store (settings.getFloat (kk.key, k.val->load(), k.lo, k.hi));
+    }
+
+    themeIndex = juce::jlimit (0, Themes::numThemes - 1, p.getIntValue ("theme", themeIndex));
+    hueLocked  = p.getBoolValue ("hueLocked", hueLocked.load());
+    audio.setPreferredDeviceId (p.getValue ("audioSource"));
+}
+
+void MainComponent::requestReset()
+{
+    const auto now = juce::Time::getMillisecondCounter();
+    if (now < resetArmedUntil.load())
+    {
+        resetArmedUntil = 0;
+        resetToDefaults();
+    }
+    else
+    {
+        resetArmedUntil = now + resetConfirmMs;
+    }
+}
+
+// Restores the factory look: every slider, the palette and the hue lock. The audio source
+// and window placement are left alone — they're environment, not style.
+void MainComponent::resetToDefaults()
+{
+    for (int i = ScreenLayout::ctFirstSlider; i < ScreenLayout::numCtrl; ++i)
+        if (const Knob k = knobFor (i); k.val != nullptr)
+            k.val->store (knobDefaults[(size_t) i]);
+
+    themeIndex = 0;
+    hueLocked  = false;
+}
+
+void MainComponent::saveSettings()
+{
+    auto& p = settings.props();
+
+    for (const auto& kk : kKnobKeys)
+    {
+        const Knob k = knobFor (kk.ctrl);
+        if (k.val != nullptr)
+            p.setValue (kk.key, k.val->load());
+    }
+
+    p.setValue ("theme",       themeIndex);
+    p.setValue ("hueLocked",   hueLocked.load());
+    p.setValue ("audioSource", audio.getCurrentDeviceId());
+
+    if (auto* window = getTopLevelComponent())
+    {
+        const auto bounds = isFullscreen() ? windowedBounds : window->getBounds();
+        if (! bounds.isEmpty())
+            p.setValue ("windowBounds", bounds.toString());
+        p.setValue ("fullscreen", isFullscreen());
+    }
+
+    settings.save();
+}
+
+void MainComponent::restoreWindowState()
+{
+    auto* window = getTopLevelComponent();
+    if (window == nullptr)
+        return;
+
+    auto& p = settings.props();
+    const auto saved = juce::Rectangle<int>::fromString (p.getValue ("windowBounds"));
+
+    // Only restore a rectangle that still lands mostly on a connected display (monitor
+    // layouts change); otherwise keep the default centred placement.
+    if (! saved.isEmpty())
+    {
+        const auto* disp = juce::Desktop::getInstance().getDisplays().getDisplayForRect (saved);
+        if (disp != nullptr)
+        {
+            const auto visible = disp->userBounds.toNearestInt().getIntersection (saved);
+            if (visible.getWidth() >= saved.getWidth() / 2 && visible.getHeight() >= saved.getHeight() / 2)
+                window->setBounds (saved);
+        }
+    }
+
+    if (p.getBoolValue ("fullscreen") && ! isFullscreen())
+        toggleFullscreen();
 }

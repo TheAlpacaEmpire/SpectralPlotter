@@ -1,9 +1,6 @@
 /*
-  ==============================================================================
-
-    This file contains the basic startup code for a JUCE application.
-
-  ==============================================================================
+    Spectral Plotter — an audio-reactive topographic plotter on a simulated phosphor CRT.
+    Copyright (C) 2026. Licensed under the GNU General Public License v3 (see LICENSE).
 */
 
 #include <JuceHeader.h>
@@ -16,7 +13,7 @@ public:
     //==============================================================================
     CircularSpectrumAnalyzerApplication() {}
 
-    const juce::String getApplicationName() override       { return ProjectInfo::projectName; }
+    const juce::String getApplicationName() override       { return "Spectral Plotter"; }
     const juce::String getApplicationVersion() override    { return ProjectInfo::versionString; }
     bool moreThanOneInstanceAllowed() override             { return true; }
 
@@ -29,16 +26,16 @@ public:
 
     void shutdown() override
     {
-        // Add your application's shutdown code here..
+        if (mainWindow != nullptr)
+            if (auto* mc = dynamic_cast<MainComponent*> (mainWindow->getContentComponent()))
+                mc->saveSettings();
 
-        mainWindow = nullptr; // (deletes our window)
+        mainWindow = nullptr;
     }
 
     //==============================================================================
     void systemRequestedQuit() override
     {
-        // This is called when the app is being asked to quit: you can ignore this
-        // request and let the app carry on running, or call quit() to allow the app to close.
         quit();
     }
 
@@ -71,28 +68,21 @@ public:
             setFullScreen (true);
            #else
             setResizable (true, true);
-            // Keep the bezel usable: map box stays >= ~440 px at the minimum size.
+            // Keep the terminal usable: map box stays >= ~440 px at the minimum size.
             setResizeLimits (540, 580, 10000, 10000);
             centreWithSize (getWidth(), getHeight());
            #endif
 
             setVisible (true);
+
+            if (auto* mc = dynamic_cast<MainComponent*> (getContentComponent()))
+                mc->restoreWindowState();   // saved size/position/fullscreen, if still on-screen
         }
 
         void closeButtonPressed() override
         {
-            // This is called when the user tries to close this window. Here, we'll just
-            // ask the app to quit when this happens, but you can change this to do
-            // whatever you need.
             JUCEApplication::getInstance()->systemRequestedQuit();
         }
-
-        /* Note: Be careful if you override any DocumentWindow methods - the base
-           class uses a lot of them, so by overriding you might break its functionality.
-           It's best to do all your work in your content component instead, but if
-           you really have to override any DocumentWindow methods, make sure your
-           subclass also calls the superclass's method.
-        */
 
     private:
         JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR (MainWindow)

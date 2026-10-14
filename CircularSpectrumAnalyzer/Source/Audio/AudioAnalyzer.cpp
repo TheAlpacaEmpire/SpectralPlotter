@@ -274,6 +274,18 @@ juce::String AudioAnalyzer::getCurrentInputName() const
     return currentDeviceName;
 }
 
+juce::String AudioAnalyzer::getCurrentDeviceId() const
+{
+    const juce::SpinLock::ScopedLockType sl (deviceLock);
+    return currentDeviceId;
+}
+
+void AudioAnalyzer::setPreferredDeviceId (const juce::String& id)
+{
+    const juce::SpinLock::ScopedLockType sl (deviceLock);
+    preferredDeviceId = id;
+}
+
 #if JUCE_WINDOWS
 namespace
 {
@@ -424,7 +436,13 @@ AudioAnalyzer::LoopbackCapture::SessionResult AudioAnalyzer::LoopbackCapture::tr
     const std::vector<Endpoint> list = enumerateEndpoints (enumerator);
     const int cycles = owner.inputCycleRequest.exchange (0);
 
-    if (selectedId.empty())   // first run: start on the system default output (old behaviour)
+    if (selectedId.empty())   // first run: the saved source if any, else the default output
+    {
+        const juce::SpinLock::ScopedLockType sl (owner.deviceLock);
+        selectedId = owner.preferredDeviceId.toWideCharPointer();
+        owner.preferredDeviceId.clear();
+    }
+    if (selectedId.empty())
     {
         IMMDevice* def = nullptr;
         if (SUCCEEDED (enumerator->GetDefaultAudioEndpoint (eRender, eConsole, &def)) && def != nullptr)
@@ -449,6 +467,7 @@ AudioAnalyzer::LoopbackCapture::SessionResult AudioAnalyzer::LoopbackCapture::tr
 
     if (! selectedId.empty())
         enumerator->GetDevice (selectedId.c_str(), &device);
+    const bool usingSelected = (device != nullptr);
     if (device == nullptr)
     {
         enumerator->GetDefaultAudioEndpoint (eRender, eConsole, &device);
@@ -461,6 +480,7 @@ AudioAnalyzer::LoopbackCapture::SessionResult AudioAnalyzer::LoopbackCapture::tr
         const juce::SpinLock::ScopedLockType sl (owner.deviceLock);
         owner.currentDeviceName = name.isNotEmpty() ? name
                                                     : juce::String (isCapture ? "INPUT" : "OUTPUT");
+        owner.currentDeviceId   = usingSelected ? juce::String (selectedId.c_str()) : juce::String();
     }
 
     device->Activate (__uuidof (IAudioClient), CLSCTX_ALL, nullptr, (void**) &client);

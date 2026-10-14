@@ -77,6 +77,12 @@ public:
     void         cycleInput (int delta = 1) noexcept { inputCycleRequest.fetch_add (delta); }
     juce::String getCurrentInputName() const;
 
+    // Persistence: the WASAPI endpoint id of the source being captured ("" = system default
+    // output), and a preferred id to open on the first session. Call setPreferredDeviceId
+    // before start(); an id that no longer exists falls back to the default output.
+    juce::String getCurrentDeviceId() const;
+    void         setPreferredDeviceId (const juce::String& id);
+
 private:
     // Called from the loopback thread — accumulates into the ring and triggers analysis.
     void pushSample (float sample) noexcept;
@@ -122,6 +128,8 @@ private:
     std::atomic<int> inputCycleRequest { 0 };
     mutable juce::SpinLock deviceLock;
     juce::String     currentDeviceName { "DEFAULT OUTPUT" };
+    juce::String     currentDeviceId;     // "" => default output (guarded by deviceLock)
+    juce::String     preferredDeviceId;   // read once by the capture thread's first session
 
     // WASAPI capture thread — captures the selected output (loopback) or input device.
     struct LoopbackCapture : public juce::Thread

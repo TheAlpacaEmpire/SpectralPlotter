@@ -53,7 +53,7 @@ struct ScreenLayout
     // one primary row; sliders add a value bar on the row below. The text
     // builder places labels/values from these anchors and the message thread
     // hit-tests the same rects, so drawn glyphs and clickable areas always agree.
-    enum { ctReseed = 0, ctLock, ctTheme, ctInput, ctPersist, ctBloom, ctThresh, ctScan, ctCrt,
+    enum { ctReseed = 0, ctLock, ctTheme, ctInput, ctReset, ctPersist, ctBloom, ctThresh, ctScan, ctCrt,
            ctShade, ctHatch, ctStipple, ctSlope, numCtrl };
     static constexpr int ctFirstSlider = ctPersist;   // ctPersist..numCtrl-1 are value sliders
     static constexpr float ctrlLabelChars = 9.0f;   // label field width, chars
@@ -89,6 +89,8 @@ struct ScreenLayout
     static constexpr int colBloomR   = 56;   // '>'
     static constexpr int colCursor   = 59;   // blinking block
     static constexpr int colTheme    = 62;   // "THEME:<NAME>" readout (always visible)
+    static constexpr int colReset    = 81;   // "[ RESET ]" / "[ CONFIRM ]" (after the longest theme)
+    static constexpr int lenReset    = 11;
 
     float colX (int col) const noexcept { return margin + (float) col * charW; }
 
@@ -121,6 +123,7 @@ struct ScreenLayout
 
     juce::Rectangle<float> seedHotspot()        const { return cmdRect (colSeed, lenSeed); }
     juce::Rectangle<float> lockHotspot()        const { return cmdRect (colLock, lenLock); }
+    juce::Rectangle<float> resetHotspot()       const { return cmdRect (colReset, lenReset); }
     juce::Rectangle<float> persistDownHotspot() const { return cmdRect (colPersistL, 1, 4.0f); }
     juce::Rectangle<float> persistUpHotspot()   const { return cmdRect (colPersistR, 1, 4.0f); }
     juce::Rectangle<float> bloomDownHotspot()   const { return cmdRect (colBloomL, 1, 4.0f); }
@@ -188,7 +191,7 @@ struct ScreenLayout
             for (int i = 0; i < numCtrl; ++i)
             {
                 const float ry = L.ctrlRowY (i);
-                L.ctrlAction[i] = { L.ctrlValX, ry, 10.0f * L.charW, L.rowH };
+                L.ctrlAction[i] = { L.ctrlValX, ry, 12.0f * L.charW, L.rowH };
                 L.ctrlAction[i] = L.ctrlAction[i].expanded (3.0f * s);
                 L.ctrlDn[i]     = juce::Rectangle<float> (L.ctrlDnX(), ry, L.charW, L.rowH).expanded (4.0f * s);
                 L.ctrlUp[i]     = juce::Rectangle<float> (L.ctrlUpX(), ry, L.charW, L.rowH).expanded (4.0f * s);

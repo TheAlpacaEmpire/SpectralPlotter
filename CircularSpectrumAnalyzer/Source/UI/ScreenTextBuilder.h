@@ -39,6 +39,9 @@ public:
         // True when the window is in kiosk (true) fullscreen — drives the header's [-]/[+]
         // window-control glyph.
         bool fullscreen = false;
+        // Factory-reset is two-step: the first press arms it and the control reads CONFIRM
+        // until a second press (or a few seconds pass).
+        bool resetArmed = false;
     };
 
     void setAdvanceFrac (float f) noexcept { adv = f; }
@@ -217,6 +220,10 @@ public:
             begin (b);
             textAt (b, L, ScreenLayout::colTheme, y,
                     juce::String ("THEME:") + juce::String (in.themeName));
+            if (! in.resetArmed)
+                textAt (b, L, ScreenLayout::colReset, y, "[ RESET ]");
+            else if (blinkOn)
+                textAt (b, L, ScreenLayout::colReset, y, "[ CONFIRM ]");
             end (b, cBright);
         }
         ++frameCount;
@@ -557,6 +564,17 @@ private:
             begin (b); text (b, x0, ry, th, "SOURCE"); end (b, cBody);
             begin (b); text (b, L.ctrlValX, ry, th, "[ NEXT ]"); end (b, cBright);
             begin (b); text (b, x0, ry + rh, th, src); end (b, cBright);
+        }
+        // DEFAULTS — two-step factory reset of the look (sliders, palette, hue lock)
+        {
+            const float ry = L.ctrlRowY (ScreenLayout::ctReset);
+            begin (b); text (b, x0, ry, th, "DEFAULTS"); end (b, cBody);
+            begin (b);
+            if (! in.resetArmed)   text (b, L.ctrlValX, ry, th, "[ RESET ]");
+            else if (blinkOn)      text (b, L.ctrlValX, ry, th, "[ CONFIRM ]");
+            end (b, cBright);
+            begin (b); text (b, x0, ry + rh, th, in.resetArmed ? "PRESS AGAIN" : "FACTORY LOOK");
+                       end (b, in.resetArmed ? cBright : cBody);
         }
         slider (ScreenLayout::ctPersist, "PERSIST",  juce::String::formatted ("%+.3f", persistShown), (persistShown + 0.05f) / 0.10f);
         slider (ScreenLayout::ctBloom,   "BLOOM",    juce::String::formatted ("%5.2f", bloomShown),   (bloomShown   - 0.50f) / 1.00f);

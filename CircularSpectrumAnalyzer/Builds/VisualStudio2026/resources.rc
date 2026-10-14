@@ -16,9 +16,11 @@ BEGIN
   BEGIN
     BLOCK "040904E4"
     BEGIN
-      VALUE "FileDescription",  "CircularSpectrumAnalyzer\0"
+      VALUE "CompanyName",  "Spectral Plotter\0"
+      VALUE "LegalCopyright",  "Copyright (C) 2026, GPLv3\0"
+      VALUE "FileDescription",  "SpectralPlotter\0"
       VALUE "FileVersion",  "1.0.0\0"
-      VALUE "ProductName",  "CircularSpectrumAnalyzer\0"
+      VALUE "ProductName",  "SpectralPlotter\0"
       VALUE "ProductVersion",  "1.0.0\0"
     END
   END
@@ -30,3 +32,6 @@ BEGIN
 END
 
 #endif
+
+IDI_ICON1 ICON DISCARDABLE "icon.ico"
+IDI_ICON2 ICON DISCARDABLE "icon.ico"
