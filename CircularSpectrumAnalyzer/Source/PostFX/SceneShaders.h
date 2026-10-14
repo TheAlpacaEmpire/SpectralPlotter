@@ -26,7 +26,12 @@ uniform float uHue;             // live neon hue
 uniform float uSaturation;      // per-theme global HSV saturation multiplier
 uniform float uCaLowHue;        // per-theme chromatic-aberration fringe hues
 uniform float uCaHighHue;
-uniform float uBass;            // bass energy (mist thickness)
+uniform float uElevSpread;      // per-theme hue offset per 10-level contour band
+uniform float uElevFill;        // per-theme: how far the fill follows the elevation ramp
+uniform vec3  uBgTint;          // per-theme background wash at the map centre
+uniform float uThermal;         // per-theme blend to the false-colour thermal ramp
+uniform float uLowDim;          // per-theme darkening of the lowest elevation bands
+uniform float uBass;           // bass energy (mist thickness)
 uniform float uEnergy;          // overall song energy (analog beam intensity)
 uniform float uTime;            // scene clock (analog beam wander / hot spots)
 uniform float uAberPx;          // chromatic aberration offset, logical px
@@ -58,6 +63,31 @@ vec3 hsv (float h, float s, float v)
 float hash21 (vec2 p)
 {
     return fract (sin (dot (p, vec2 (127.1, 311.7))) * 43758.5453);
+}
+
+// False-colour heat ramp, x = 0 (valley floor) .. 1 (summit): indigo -> purple
+// -> red -> orange -> near-white. The low end stays bright enough to read as a
+// line, and the 0.65 gamma spends more of the ramp on low ground so a quiet,
+// flattish map still reaches red/orange on its higher contours.
+vec3 thermalRamp (float x)
+{
+    x = pow (clamp (x, 0.0, 1.0), 0.65) * 4.0;
+    vec3 c0 = vec3 (0.45, 0.25, 1.00);
+    vec3 c1 = vec3 (0.85, 0.20, 0.85);
+    vec3 c2 = vec3 (1.00, 0.12, 0.18);
+    vec3 c3 = vec3 (1.00, 0.62, 0.05);
+    vec3 c4 = vec3 (1.00, 1.00, 0.85);
+    if (x < 1.0) return mix (c0, c1, x);
+    if (x < 2.0) return mix (c1, c2, x - 1.0);
+    if (x < 3.0) return mix (c2, c3, x - 2.0);
+    return mix (c3, c4, x - 3.0);
+}
+
+// Elevation-driven colour: the theme's hue ramp, blended toward the thermal ramp
+// at position x (0..1) by uThermal. v scales both, so callers keep their weights.
+vec3 elevCol (float h, float x, float s, float v)
+{
+    return mix (hsv (h, s, v), thermalRamp (x) * v, uThermal);
 }
 
 // Smooth 2D value noise in [0,1] (used for the analog beam intensity along traces).
@@ -137,8 +167,23 @@ void main()
     float dPx   = abs (t + jit * jitPx * grad - k) / grad;   // distance to contour, physical px
     int  bucket  = lev / 10;                             // 6 brightness buckets
 
-    float hueB  = fract (uHue + (float (bucket) - 2.5) * 0.015 + 1.0);
-    vec3  cLine = hsv (hueB, 1.0, 0.70 + 0.06 * float (bucket));
+    // Elevation hue ramp, capped at the nominal 6 bands: rings above the ceiling
+    // (flash overshoot) keep the summit hue instead of running off the ramp.
+    float hueB  = fract (uHue + (min (float (bucket), 5.0) - 2.5) * uElevSpread + 1.0);
+
+    // Same ramp, continuous, for the fill between the lines (hillshade, stipple,
+    // hachures). Centred so each band's fill matches its contours' hue on average.
+    float bandF = clamp ((t - 1.0) / 10.0, 0.5, 5.5) - 3.0;
+    float hueF  = fract (uHue + bandF * uElevSpread * uElevFill + 1.0);
+    // Thermal-ramp positions (lines stepped per band, fill continuous); louder
+    // mixes run hotter.
+    float heat  = 0.12 * uEnergy;
+    float xLine = min (float (bucket), 5.0) / 5.0 + heat;
+    float xFill = (bandF + 2.5) / 5.0 + heat;
+    // Per-theme low-band darkening: full uLowDim at the valley floor, none at the top.
+    float dimL  = 1.0 - uLowDim * (1.0 - min (float (bucket), 5.0) / 5.0);
+    float dimF  = 1.0 - uLowDim * (1.0 - (bandF + 2.5) / 5.0);
+    vec3  cLine = elevCol (hueB, xLine, 1.0, (0.70 + 0.06 * float (bucket)) * dimL);
 
     // --- analog beam de-uniforming (scales with song intensity) ----------------
     // Real plotter/CRT traces are never uniform: beam energy wanders along the
@@ -180,11 +225,11 @@ void main()
     float aB = ((kB >= 53.0 && kB <= 60.0) ? 0.07 : 0.0)
              * (1.0 - smoothstep (aberW - 0.5, aberW + 0.5, dB)) * flatFade;
 
-    // --- background: radial gradient, faint green centre to black ---
+    // --- background: radial gradient, faint theme-tinted centre to black ---
     vec2  centre = uBoxOffset + vec2 (boxSize * 0.5);   // map-box centre, not window centre
     float rad    = length (pLog - centre);
     float bgR    = boxHalfDiag * 1.1;
-    vec3  col    = mix (vec3 (3.0, 8.0, 3.0) / 255.0, vec3 (0.0),
+    vec3  col    = mix (uBgTint, vec3 (0.0),
                         clamp (rad / bgR, 0.0, 1.0));
 
     vec3 kNeon = hsv (uHue, 1.0, 1.0);
@@ -194,7 +239,7 @@ void main()
         vec3  N     = normalize (vec3 (-gvec, 1.0));
         float shade = dot (N, uLightDir) - uLightDir.z;   // == 0 on flat ground
         float m = smoothstep (0.06, 0.35, hNorm) * notRiver * uShadeStrength;
-        col += hsv (uHue, 0.85, 1.0) * max (shade, 0.0) * m;   // sunlit: add hue
+        col += elevCol (hueF, xFill, 0.85, dimF) * max (shade, 0.0) * m;   // sunlit: add hue
         col *= 1.0 + min (shade, 0.0) * m * 0.8;               // shaded: darken bg
     }
 
@@ -215,7 +260,7 @@ void main()
                     * smoothstep (0.10, 0.18, hNorm)         // out of mist/river lowlands
                     * notRiver * flatFade;
         float aStip = uStippleStrength * (1.0 + 0.6 * uBass) * dotCov * lit * gateS;
-        col = mix (col, hsv (uHue, 0.7, 0.85), aStip);
+        col = mix (col, elevCol (hueF, xFill, 0.7, 0.85 * dimF), aStip);
     }
 
     // --- slope hachures: down-slope ticks in the band below each contour ---
@@ -234,7 +279,7 @@ void main()
         float gateH = slopeGate * bandGate * coreFade
                     * smoothstep (0.12, 0.20, hNorm)         // no hatching in lowlands
                     * notRiver * flatFade;
-        col = mix (col, hsv (uHue, 0.85, 0.90), uHatchStrength * stripe * gateH);
+        col = mix (col, elevCol (hueF, xFill, 0.85, 0.90 * dimF), uHatchStrength * stripe * gateH);
     }
 
     // --- military radar grid: dotted lines every 72 px + dotted concentric circles ---

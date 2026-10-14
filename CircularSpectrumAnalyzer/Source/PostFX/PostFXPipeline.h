@@ -19,10 +19,9 @@ public:
     {
         float time = 0.0f;   // scene animation clock, drives all shader motion
 
-        // phosphor persistence: per-frame decay of the accumulation buffer.
-        // Green lingers longest (P31 phosphor feel).
-        float decay      = 0.86f;
-        float decayGreen = 0.90f;
+        // phosphor persistence: per-frame, per-channel decay of the accumulation
+        // buffer. The per-theme bias decides which channel lingers (P31: green).
+        float decayR = 0.86f, decayG = 0.90f, decayB = 0.86f;
 
         // bloom — threshold gates what glows: keep it high enough that only the
         // bright river/index lines bloom, so the fine contour lines stay crisp.

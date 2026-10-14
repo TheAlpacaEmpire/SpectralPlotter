@@ -274,6 +274,13 @@ juce::String AudioAnalyzer::getCurrentInputName() const
     return currentDeviceName;
 }
 
+void AudioAnalyzer::getCurrentInputPosition (int& index, int& count) const
+{
+    const juce::SpinLock::ScopedLockType sl (deviceLock);
+    index = currentDeviceIndex;
+    count = deviceCount;
+}
+
 juce::String AudioAnalyzer::getCurrentDeviceId() const
 {
     const juce::SpinLock::ScopedLockType sl (deviceLock);
@@ -451,6 +458,8 @@ AudioAnalyzer::LoopbackCapture::SessionResult AudioAnalyzer::LoopbackCapture::tr
             def->Release();
         }
     }
+    if (cycles != 0)
+        owner.accessDenied.store (false);   // a new source starts with a clean slate
     if (cycles != 0 && ! list.empty())
     {
         const int n   = (int) list.size();
@@ -481,9 +490,13 @@ AudioAnalyzer::LoopbackCapture::SessionResult AudioAnalyzer::LoopbackCapture::tr
         owner.currentDeviceName = name.isNotEmpty() ? name
                                                     : juce::String (isCapture ? "INPUT" : "OUTPUT");
         owner.currentDeviceId   = usingSelected ? juce::String (selectedId.c_str()) : juce::String();
+        owner.currentDeviceIndex = usingSelected ? indexOfId (list, selectedId) : -1;
+        owner.deviceCount        = (int) list.size();
     }
 
-    device->Activate (__uuidof (IAudioClient), CLSCTX_ALL, nullptr, (void**) &client);
+    // E_ACCESSDENIED (from Activate or Initialize) on an input = mic privacy switch is off.
+    const HRESULT hrAct = device->Activate (__uuidof (IAudioClient), CLSCTX_ALL, nullptr, (void**) &client);
+    if (hrAct == E_ACCESSDENIED) owner.accessDenied.store (true);
     if (client == nullptr) return SessionResult::Faulted;
 
     WAVEFORMATEX* fmt = nullptr;
@@ -499,6 +512,7 @@ AudioAnalyzer::LoopbackCapture::SessionResult AudioAnalyzer::LoopbackCapture::tr
     const HRESULT hr = client->Initialize (AUDCLNT_SHAREMODE_SHARED, streamFlags,
                                            10000000 /*1 s buffer*/, 0, fmt, nullptr);
     ::CoTaskMemFree (fmt);
+    owner.accessDenied.store (hr == E_ACCESSDENIED);
     if (FAILED (hr)) return SessionResult::Faulted;
 
     client->GetService (__uuidof (IAudioCaptureClient), (void**) &capture);

@@ -29,7 +29,10 @@ public:
         float decay = 0.0f, bloom = 0.0f;
         bool  hueLocked = false;
         const char* themeName = "GREEN P31";   // active palette (Themes::kThemes[i].name)
+        int   themeIndex = 0, themeCount = 1;  // position in the palette list (PALETTE < nn/nn >)
         juce::String inputName;                 // current audio source (device friendly name)
+        int   inputIndex = -1, inputCount = 0;  // source position in the device list (SOURCE < nn/nn >)
+        bool  sourceDenied = false;             // selected source refused access (mic privacy): red warning sign
         // WASAPI loopback state shown in the header — nullptr/"LIVE" when capturing normally,
         // "RECONNECTING" / "NO SIGNAL" when the analyzer has lost the output device.
         const char* audioStatus = "LIVE";
@@ -543,15 +546,21 @@ private:
                              "HUE " + juce::String ((int) (in.hue * 360.0f) % 360).paddedLeft ('0', 3)
                              + (in.hueLocked ? " HELD" : " TRACK")); end (b, cBody);
         }
-        // PALETTE — cycling action button
+        // PALETTE — stepper like the sliders: < prev, nn/nn position, > next
         {
             const float ry = L.ctrlRowY (ScreenLayout::ctTheme);
             begin (b); text (b, x0, ry, th, "PALETTE"); end (b, cBody);
-            begin (b); text (b, L.ctrlValX, ry, th, "[ CYCLE ]"); end (b, cBright);
+            begin (b);
+            text (b, L.ctrlDnX(), ry, th, "<");
+            text (b, L.ctrlUpX(), ry, th, ">");
+            text (b, L.ctrlValueX(), ry, th,
+                  juce::String (in.themeIndex + 1).paddedLeft ('0', 2) + "/"
+                  + juce::String (in.themeCount).paddedLeft ('0', 2));
+            end (b, cBright);
             begin (b); text (b, x0, ry + rh, th,
                              juce::String (in.themeName).paddedRight (' ', 12)); end (b, cBright);
         }
-        // AUDIO SOURCE — cycles through every output (loopback) and input device
+        // AUDIO SOURCE — < > step through every output (loopback) and input device
         {
             const float ry = L.ctrlRowY (ScreenLayout::ctInput);
             // Fit the device name to the band width on the row below the button (ASCII atlas,
@@ -562,7 +571,20 @@ private:
             if (src.length() > maxChars)
                 src = src.substring (0, maxChars - 1) + ">";
             begin (b); text (b, x0, ry, th, "SOURCE"); end (b, cBody);
-            begin (b); text (b, L.ctrlValX, ry, th, "[ NEXT ]"); end (b, cBright);
+            if (in.sourceDenied)   // red warning sign in the label gap: access denied (mic privacy)
+            {
+                begin (b);
+                quad (b, x0 + 7.0f * charW (th), ry, charW (th), th, GlyphAtlas::GWarn, 1.0f);
+                end (b, juce::Colour::fromHSV (0.0f, 0.85f, 1.00f, 1.00f));   // fixed red on every theme
+            }
+            begin (b);
+            text (b, L.ctrlDnX(), ry, th, "<");
+            text (b, L.ctrlUpX(), ry, th, ">");
+            text (b, L.ctrlValueX(), ry, th,
+                  (in.inputIndex >= 0 ? juce::String (in.inputIndex + 1).paddedLeft ('0', 2)
+                                      : juce::String ("--"))
+                  + "/" + juce::String (in.inputCount).paddedLeft ('0', 2));
+            end (b, cBright);
             begin (b); text (b, x0, ry + rh, th, src); end (b, cBright);
         }
         // DEFAULTS — two-step factory reset of the look (sliders, palette, hue lock)

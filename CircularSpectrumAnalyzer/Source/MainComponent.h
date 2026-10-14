@@ -67,6 +67,10 @@ private:
         // instead of Themes::get so a palette switch fades smoothly).
         float liveSat  = 1.0f, liveCaLo = 0.0f, liveCaHi = 0.62f;
         float liveConv = 1.0f, liveHal  = 1.0f;
+        float liveElevSpread = 0.015f, liveElevFill = 0.0f;   // elevation hue ramp
+        Themes::Tint liveBg        { 0.012f, 0.031f, 0.012f };   // map-box background wash
+        Themes::Tint liveDecayBias { 0.0f, 0.03f, 0.0f };      // per-channel persistence bias
+        float liveThermal = 0.0f, liveLowDim = 0.0f;
         Themes::Tint livePhosphor { 0.93f, 1.04f, 0.95f };
         Themes::Tint liveGrain    { 0.55f, 1.00f, 0.62f };
         uint32_t seed = 0;
@@ -155,11 +159,15 @@ private:
     // palette switch fades rather than snaps (the hue already eases via currentHue).
     float liveSat  = 1.0f, liveCaLo = 0.0f, liveCaHi = 0.62f;
     float liveConv = 1.0f, liveHal  = 1.0f;
+    float liveElevSpread = 0.015f, liveElevFill = 0.0f;   // elevation hue ramp
+    Themes::Tint liveBg        { 0.012f, 0.031f, 0.012f };   // map-box background wash
+    Themes::Tint liveDecayBias { 0.0f, 0.03f, 0.0f };      // per-channel persistence bias
+    float liveThermal = 0.0f, liveLowDim = 0.0f;
     Themes::Tint livePhosphor { 0.93f, 1.04f, 0.95f };
     Themes::Tint liveGrain    { 0.55f, 1.00f, 0.62f };
 
-    void cycleTheme();          // message thread: advance to the next palette
-    void cycleInput();          // message thread: advance to the next audio source (device)
+    void cycleTheme (int step = 1);   // message thread: step palette (+1 next, -1 previous)
+    void cycleInput (int step = 1);   // message thread: step audio source (+1 next, -1 previous)
 
     // True (kiosk) fullscreen toggle — borderless, covers the whole display. Bound to the
     // header [+]/[-] control, the F / F11 keys, and Esc (exit only).

@@ -45,8 +45,9 @@ public:
         GDitherL = 59,     // '░'
         GDitherH = 60,     // '▓'
         GSolid   = 61,     // full-white cell (rules, inverse-video bars)
+        GWarn    = 62,     // warning sign: outlined triangle with a "!" (error flags)
 
-        numGlyphs = 62
+        numGlyphs = 63
     };
 
     static constexpr int cellW = 32, cellH = 48;
@@ -106,6 +107,15 @@ public:
                 juce::Path p;
                 p.addTriangle (cx, cy - 12.0f, cx - 12.0f, cy + 10.0f, cx + 12.0f, cy + 10.0f);
                 g.strokePath (p, juce::PathStrokeType (3.0f));
+            }
+            // Warning sign: the triangulation triangle's stroke, a touch larger, with a "!"
+            {
+                const float cx = GWarn * cellW + cellW * 0.5f, cy = cellH * 0.5f;
+                juce::Path p;
+                p.addTriangle (cx, cy - 14.0f, cx - 14.0f, cy + 11.0f, cx + 14.0f, cy + 11.0f);
+                g.strokePath (p, juce::PathStrokeType (3.0f, juce::PathStrokeType::mitered));
+                g.fillRect (cx - 1.5f, cy - 6.0f, 3.0f, 9.0f);   // bar
+                g.fillRect (cx - 1.5f, cy + 5.0f, 3.0f, 3.0f);   // dot
             }
             // Clutter dot
             {

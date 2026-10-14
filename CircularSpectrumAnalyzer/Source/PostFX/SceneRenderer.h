@@ -1,6 +1,7 @@
 #pragma once
 
 #include <JuceHeader.h>
+#include "Themes.h"
 
 // GPU scene renderer: draws the full topo scene (background gradient, radar
 // grid, valley mist, 60-level isolines, chromatic aberration) into the scene
@@ -40,6 +41,11 @@ public:
         float saturation     = 1.0f;         // per-theme global HSV saturation multiplier
         float caLowHue       = 0.0f;         // per-theme chromatic-aberration fringe hues
         float caHighHue      = 0.62f;
+        float elevHueSpread  = 0.015f;       // per-theme hue offset per 10-level contour band
+        float elevFill       = 0.0f;         // per-theme: how far the fill follows that ramp (0..1)
+        Themes::Tint bgTint  { 0.012f, 0.031f, 0.012f };  // per-theme background wash (centre)
+        float thermal        = 0.0f;         // per-theme: blend to the false-colour thermal ramp
+        float lowDim         = 0.0f;         // per-theme: darkening of the lowest elevation bands
         float shadeStrength  = 0.18f;        // hillshade master gain (UI slider)
         float slopeK         = 12.0f;        // height-to-grid slope scale (UI slider)
         float hatchStrength  = 0.65f;        // slope-hachure gain (UI slider)

@@ -74,7 +74,9 @@ void MainComponent::reseed()
 
 //==============================================================================
 // Command input. The screen's command line mirrors these: N=[NEW SEED],
-// L=hue lock, T=cycle palette, [ ]=persist trim down/up, - ==bloom trim down/up.
+// L=hue lock, T / Shift+T=next / previous palette, I / Shift+I=next / previous
+// audio source, [ ]=persist trim down/up,
+// - ==bloom trim down/up.
 void MainComponent::stepPersist (float delta)
 {
     persistTrimVal = juce::jlimit (-0.05f, 0.05f, persistTrimVal.load() + delta);
@@ -131,14 +133,22 @@ void MainComponent::stepKnob (int ctrlIndex, float dir)
         k.val->store (juce::jlimit (k.lo, k.hi, k.val->load() + dir * k.step));
 }
 
-void MainComponent::cycleTheme()
+void MainComponent::cycleTheme (int step)
 {
-    themeIndex = (themeIndex + 1) % Themes::numThemes;
+    themeIndex = (themeIndex + step + Themes::numThemes) % Themes::numThemes;
+
+    // Ease to the new palette the short way round the hue circle (VAPOR 95 at 0.92 ->
+    // LIME P1 at 0.25 would otherwise sweep the whole rainbow): shift the eased value by
+    // a full turn so the plain lerp in timerCallback crosses the 0/1 seam. It is
+    // re-wrapped when published, so consumers always see 0..1.
+    const float d = Themes::get (themeIndex).baseHue - currentHue;
+    if      (d >  0.5f) currentHue += 1.0f;
+    else if (d < -0.5f) currentHue -= 1.0f;
 }
 
-void MainComponent::cycleInput()
+void MainComponent::cycleInput (int step)
 {
-    audio.cycleInput();          // capture thread restarts on the next device
+    audio.cycleInput (step);     // capture thread restarts on the next / previous device
     audio.resetFastEnvelope();   // drop stale transient state from the old source
 }
 
@@ -190,8 +200,10 @@ bool MainComponent::keyPressed (const juce::KeyPress& key)
         case 's': screenshotRequested = true;   return true;   // dump scene FBO to PNG
         case 'n': reseed();                     return true;   // same as [ NEW SEED ]
         case 'l': hueLocked = ! hueLocked;      return true;
-        case 't': cycleTheme();                 return true;   // next palette
-        case 'i': cycleInput();                 return true;   // next audio source (device)
+        case 't': cycleTheme (key.getModifiers().isShiftDown() ? -1 : 1);
+                  return true;                                 // next / previous palette
+        case 'i': cycleInput (key.getModifiers().isShiftDown() ? -1 : 1);
+                  return true;                                 // next / previous audio source
         case 'r': requestReset();               return true;   // factory reset (press twice)
         case 'f': toggleFullscreen();           return true;   // true (kiosk) fullscreen
         case '[': stepPersist (-0.005f);        return true;
@@ -281,8 +293,10 @@ void MainComponent::mouseUp (const juce::MouseEvent& e)
     {
         if      (L.ctrlAction[ScreenLayout::ctReseed].contains (p)) reseed();
         else if (L.ctrlAction[ScreenLayout::ctLock]  .contains (p)) hueLocked = ! hueLocked;
-        else if (L.ctrlAction[ScreenLayout::ctTheme] .contains (p)) cycleTheme();
-        else if (L.ctrlAction[ScreenLayout::ctInput] .contains (p)) cycleInput();
+        else if (L.ctrlDn[ScreenLayout::ctTheme]    .contains (p)) cycleTheme (-1);
+        else if (L.ctrlUp[ScreenLayout::ctTheme]    .contains (p)) cycleTheme (+1);
+        else if (L.ctrlDn[ScreenLayout::ctInput]    .contains (p)) cycleInput (-1);
+        else if (L.ctrlUp[ScreenLayout::ctInput]    .contains (p)) cycleInput (+1);
         else if (L.ctrlAction[ScreenLayout::ctReset] .contains (p)) requestReset();
         else                                                        // value sliders
         {
@@ -324,7 +338,7 @@ void MainComponent::publishSnapshot()
     }
     shared.feats          = audio.getFeatures();
     shared.animTime       = animTime;
-    shared.currentHue     = currentHue;
+    shared.currentHue     = currentHue - std::floor (currentHue);   // may sit outside 0..1 mid-switch
     shared.themeIndex     = themeIndex;
     shared.crtRoll        = rollEnv;
     shared.crtDegauss     = degaussEnv;
@@ -333,6 +347,12 @@ void MainComponent::publishSnapshot()
     shared.liveCaHi       = liveCaHi;
     shared.liveConv       = liveConv;
     shared.liveHal        = liveHal;
+    shared.liveElevSpread = liveElevSpread;
+    shared.liveElevFill   = liveElevFill;
+    shared.liveBg         = liveBg;
+    shared.liveDecayBias  = liveDecayBias;
+    shared.liveThermal    = liveThermal;
+    shared.liveLowDim     = liveLowDim;
     shared.livePhosphor   = livePhosphor;
     shared.liveGrain      = liveGrain;
     shared.seed           = terrain.getSeed();
@@ -442,6 +462,11 @@ void MainComponent::renderOpenGL()
         f.saturation     = glLocal.liveSat;
         f.caLowHue       = glLocal.liveCaLo;
         f.caHighHue      = glLocal.liveCaHi;
+        f.elevHueSpread  = glLocal.liveElevSpread;
+        f.elevFill       = glLocal.liveElevFill;
+        f.bgTint         = glLocal.liveBg;
+        f.thermal        = glLocal.liveThermal;
+        f.lowDim         = glLocal.liveLowDim;
         f.shadeStrength  = shadeVal.load();
         f.slopeK         = slopeVal.load();
         f.hatchStrength  = hatchVal.load();
@@ -513,7 +538,11 @@ void MainComponent::renderOpenGL()
             in.bloom      = effBloom.load();
             in.hueLocked  = hueLocked.load();
             in.themeName  = Themes::get (glLocal.themeIndex).name;
+            in.themeIndex = glLocal.themeIndex;
+            in.themeCount = Themes::numThemes;
             in.inputName  = audio.getCurrentInputName();
+            audio.getCurrentInputPosition (in.inputIndex, in.inputCount);
+            in.sourceDenied = audio.isAccessDenied();
             in.saturation = glLocal.liveSat;
             switch (audio.getCaptureState())   // atomic load — safe from the GL thread
             {
@@ -522,6 +551,7 @@ void MainComponent::renderOpenGL()
                 case AudioAnalyzer::CaptureState::Starting:     in.audioStatus = "STARTING";     break;
                 case AudioAnalyzer::CaptureState::Failed:       in.audioStatus = "NO SIGNAL";    break;
             }
+            if (in.sourceDenied) in.audioStatus = "MIC DENIED";   // retrying, but only the user can fix it
             in.shaderError = sceneRenderer.getLastShaderError().isNotEmpty();
             in.fullscreen  = fullscreenFlag.load();   // published by the message thread
             in.resetArmed  = juce::Time::getMillisecondCounter() < resetArmedUntil.load();
@@ -594,9 +624,11 @@ PostFXPipeline::Params MainComponent::mapPostFXParams (const RenderSnapshot& sna
     const float decay60 = juce::jlimit (0.0f, 0.985f,
                                         juce::jlimit (0.0f, 0.970f, 0.72f + 0.06f * energy)
                                         + persistTrimVal.load());
-    const float green60 = juce::jlimit (0.0f, 0.985f, decay60 + 0.03f);
-    p.decay          = std::pow (decay60, glDt * 60.0f);
-    p.decayGreen     = std::pow (green60, glDt * 60.0f);
+    // Per-theme channel bias (P31 keeps its old +0.03 green; P7 dumps blue fast).
+    auto chanDecay = [&] (float bias) { return std::pow (juce::jlimit (0.0f, 0.985f, decay60 + bias), glDt * 60.0f); };
+    p.decayR         = chanDecay (snap.liveDecayBias.r);
+    p.decayG         = chanDecay (snap.liveDecayBias.g);
+    p.decayB         = chanDecay (snap.liveDecayBias.b);
     p.bloomThreshold = bloomThreshVal.load();    // only bright cores bloom; fine contours stay sharp
     p.bloomIntensity = (0.45f + 0.65f * energy) * bloomTrimVal.load();
     effDecay.store (decay60);                    // telemetry shows the per-60 Hz value
@@ -1108,6 +1140,12 @@ void MainComponent::timerCallback()
         ease (liveCaHi, t.caHighHue);
         ease (liveConv, t.convergence);
         ease (liveHal,  t.halation);
+        ease (liveElevSpread, t.elevHueSpread);
+        ease (liveElevFill,   t.elevFill);
+        ease (liveThermal,    t.thermal);
+        ease (liveLowDim,     t.lowDim);
+        ease (liveBg.r, t.bgTint.r); ease (liveBg.g, t.bgTint.g); ease (liveBg.b, t.bgTint.b);
+        ease (liveDecayBias.r, t.decayBias.r); ease (liveDecayBias.g, t.decayBias.g); ease (liveDecayBias.b, t.decayBias.b);
         ease (livePhosphor.r, t.phosphorTint.r); ease (livePhosphor.g, t.phosphorTint.g); ease (livePhosphor.b, t.phosphorTint.b);
         ease (liveGrain.r,    t.grainTint.r);    ease (liveGrain.g,    t.grainTint.g);    ease (liveGrain.b,    t.grainTint.b);
     }
@@ -1218,7 +1256,19 @@ void MainComponent::loadSettings()
             k.val->store (settings.getFloat (kk.key, k.val->load(), k.lo, k.hi));
     }
 
-    themeIndex = juce::jlimit (0, Themes::numThemes - 1, p.getIntValue ("theme", themeIndex));
+    // Theme is saved by name (the table is ordered round the hue wheel and may be
+    // reordered); 1.0.0 saved an index into its original 9-theme table instead.
+    if (p.containsKey ("themeName"))
+    {
+        themeIndex = juce::jmax (0, Themes::findByName (p.getValue ("themeName").toRawUTF8()));
+    }
+    else if (p.containsKey ("theme"))
+    {
+        const int legacy = p.getIntValue ("theme");
+        constexpr int numLegacy = (int) (sizeof (Themes::kLegacyNames) / sizeof (Themes::kLegacyNames[0]));
+        themeIndex = (legacy >= 0 && legacy < numLegacy)
+                   ? juce::jmax (0, Themes::findByName (Themes::kLegacyNames[legacy])) : 0;
+    }
     hueLocked  = p.getBoolValue ("hueLocked", hueLocked.load());
     audio.setPreferredDeviceId (p.getValue ("audioSource"));
 }
@@ -1260,7 +1310,8 @@ void MainComponent::saveSettings()
             p.setValue (kk.key, k.val->load());
     }
 
-    p.setValue ("theme",       themeIndex);
+    p.setValue ("themeName",   juce::String (Themes::get (themeIndex).name));
+    p.removeValue ("theme");                                  // legacy 1.0.0 index key
     p.setValue ("hueLocked",   hueLocked.load());
     p.setValue ("audioSource", audio.getCurrentDeviceId());
 

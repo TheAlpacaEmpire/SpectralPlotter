@@ -18,15 +18,15 @@ No installer and no runtime redistributables are needed: unzip and run `Spectral
 ## Usage
 
 By default the app captures the system's default playback device (WASAPI loopback), so just
-play some music. Press **I** (or click **SOURCE**) to cycle through other output and input
-devices — microphones and line-in work too.
+play some music. Press **I** / **Shift+I** (or click the **SOURCE** arrows) to step through
+other output and input devices — microphones and line-in work too.
 
 | Key            | Action                                        |
 | -------------- | --------------------------------------------- |
 | `N`            | New terrain seed                              |
-| `T`            | Cycle colour palette                          |
+| `T` / `Shift+T` | Next / previous colour palette               |
 | `L`            | Lock / unlock the hue                         |
-| `I`            | Cycle audio source                            |
+| `I` / `Shift+I` | Next / previous audio source                 |
 | `F` / `F11`    | Toggle fullscreen (`Esc` exits fullscreen)    |
 | `[` / `]`      | Phosphor persistence down / up                |
 | `-` / `=`      | Bloom down / up                               |

@@ -76,6 +76,13 @@ public:
     // current source's friendly name is published for the on-screen control.
     void         cycleInput (int delta = 1) noexcept { inputCycleRequest.fetch_add (delta); }
     juce::String getCurrentInputName() const;
+    // Position of the current source in the enumerated endpoint list (index -1 if it is
+    // not in the list, e.g. a fallback to the default output), for the < nn/nn > readout.
+    void         getCurrentInputPosition (int& index, int& count) const;
+    // True while the selected source refuses to open with E_ACCESSDENIED — for an input
+    // device that is the Windows microphone privacy switch. Capture keeps retrying, so it
+    // clears on its own once access is granted (or another source is picked).
+    bool         isAccessDenied() const noexcept { return accessDenied.load(); }
 
     // Persistence: the WASAPI endpoint id of the source being captured ("" = system default
     // output), and a preferred id to open on the first session. Call setPreferredDeviceId
@@ -126,9 +133,11 @@ private:
     // Audio-source selection. inputCycleRequest is added to by the message thread and drained
     // by the capture thread; currentDeviceName is the guarded friendly name shown in the UI.
     std::atomic<int> inputCycleRequest { 0 };
+    std::atomic<bool> accessDenied { false };   // see isAccessDenied()
     mutable juce::SpinLock deviceLock;
     juce::String     currentDeviceName { "DEFAULT OUTPUT" };
     juce::String     currentDeviceId;     // "" => default output (guarded by deviceLock)
+    int              currentDeviceIndex = -1, deviceCount = 0;   // list position (guarded by deviceLock)
     juce::String     preferredDeviceId;   // read once by the capture thread's first session
 
     // WASAPI capture thread — captures the selected output (loopback) or input device.

@@ -20,7 +20,7 @@ void main()
 )";
 
 // Phosphor persistence: accum = max (scene, prevAccum * decay - epsilon).
-// Green decays slower than red/blue for a P31-phosphor feel. The 1/255 epsilon
+// Per-channel decay comes from the theme (P31: green lingers; P7: blue dies fast). The 1/255 epsilon
 // matters: the accum FBO is RGBA8, and x * decay rounds back to x for small x,
 // which would leave permanent ghosts without it.
 constexpr const char* persistenceFrag = R"(

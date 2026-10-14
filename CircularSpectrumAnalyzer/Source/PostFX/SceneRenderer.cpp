@@ -296,6 +296,11 @@ void SceneRenderer::renderScene (const Frame& f,
     sceneProg->setUniform ("uSaturation",  f.saturation);
     sceneProg->setUniform ("uCaLowHue",    f.caLowHue);
     sceneProg->setUniform ("uCaHighHue",   f.caHighHue);
+    sceneProg->setUniform ("uElevSpread",  f.elevHueSpread);
+    sceneProg->setUniform ("uElevFill",    f.elevFill);
+    sceneProg->setUniform ("uBgTint",      f.bgTint.r, f.bgTint.g, f.bgTint.b);
+    sceneProg->setUniform ("uThermal",     f.thermal);
+    sceneProg->setUniform ("uLowDim",      f.lowDim);
     sceneProg->setUniform ("uBass",        f.bassEnergy);
     sceneProg->setUniform ("uEnergy",      f.overallEnergy);
     sceneProg->setUniform ("uTime",        f.animTime);

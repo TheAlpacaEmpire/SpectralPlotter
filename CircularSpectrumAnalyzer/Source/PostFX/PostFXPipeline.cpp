@@ -157,7 +157,7 @@ void PostFXPipeline::process (juce::OpenGLContext& ctx, const Params& p, int wPx
     bindTex (1, accumFBO[accumIndex]);
     persistence->setUniform ("uScene", 0);
     persistence->setUniform ("uPrev", 1);
-    persistence->setUniform ("uDecay", p.decay, p.decayGreen, p.decay);
+    persistence->setUniform ("uDecay", p.decayR, p.decayG, p.decayB);
     drawQuad (*persistence);
     accumIndex = dst;
     auto& accum = accumFBO[accumIndex];
