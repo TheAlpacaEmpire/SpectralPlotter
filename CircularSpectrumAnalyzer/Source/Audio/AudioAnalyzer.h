@@ -22,6 +22,7 @@ struct AudioFeatures
     float overallEnergy = 0.0f;   // mean(level)
     float bassEnergy    = 0.0f;   // mean(level[0..6])
     float highEnergy    = 0.0f;   // mean(level[37..])
+    float gainDb        = 0.0f;   // input gain applied this frame (auto-gain boost or the manual value)
 };
 
 //==============================================================================
@@ -90,6 +91,11 @@ public:
     juce::String getCurrentDeviceId() const;
     void         setPreferredDeviceId (const juce::String& id);
 
+    // Input gain. With auto-gain on (default) the analyzer boosts quiet playback itself;
+    // with it off, the manual dB value is applied instead. Safe from any thread.
+    void setAutoGain (bool on) noexcept          { autoGainOn.store (on); }
+    void setManualGainDb (float db) noexcept     { manualGainDb.store (db); }
+
 private:
     // Called from the loopback thread — accumulates into the ring and triggers analysis.
     void pushSample (float sample) noexcept;
@@ -120,6 +126,19 @@ private:
     std::array<float, numBands> prevMag {};        // previous frame's percussive target (for flux)
     std::array<float, numBands> harmEnv {};        // smoothed harmonic output
     std::array<float, numBands> percEnv {};        // smoothed percussive output
+
+    // Automatic gain: loopback captures *post*-volume audio, so a quiet system volume pushed
+    // every band under the fixed -60 dB floor. peakRefDb tracks the loudest recent weighted
+    // band (fast attack, slow release) and the dB->0..1 mapping is boosted so that peak
+    // sits at agcTargetDb. Boost-only; the target is the measured full-volume peak of
+    // typical music (~-36..-40 dB), so full-volume playback looks as it did before.
+    static constexpr float agcTargetDb      = -37.0f;  // where recent peaks land after boost
+    static constexpr float agcMaxBoostDb    = 50.0f;   // cap so near-silence isn't blown up
+    static constexpr float agcGateDb        = -88.0f;  // frames quieter than this don't lower the ref
+    static constexpr float agcReleaseDbPerS = 6.0f;    // how fast the ref falls after a loud passage
+    float peakRefDb = agcTargetDb;
+    std::atomic<bool>  autoGainOn   { true };
+    std::atomic<float> manualGainDb { 0.0f };
 
     // --- published features (guarded) + message-thread snapshot ---
     juce::SpinLock  featuresLock;

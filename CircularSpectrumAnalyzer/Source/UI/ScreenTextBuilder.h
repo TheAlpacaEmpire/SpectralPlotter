@@ -45,6 +45,8 @@ public:
         // Factory-reset is two-step: the first press arms it and the control reads CONFIRM
         // until a second press (or a few seconds pass).
         bool resetArmed = false;
+        // Auto-gain on: the GAIN slider dims and tracks the boost the analyzer applies itself.
+        bool autoGain = true;
     };
 
     void setAdvanceFrac (float f) noexcept { adv = f; }
@@ -275,6 +277,7 @@ public:
     float hatchShown   = 0.65f;
     float stippleShown = 0.045f;
     float slopeShown   = 12.0f;
+    float gainShown    = 0.0f;     // manual input gain (dB); auto-gain shows feats.gainDb instead
 
 private:
     float adv = 0.45f;
@@ -515,17 +518,20 @@ private:
         begin (b); text (b, x0, L.rightPanel.getY(), th, "// CONTROL"); end (b, cBright);
 
         // '< value >' stepper + a normalized value bar on the row below
+        // (dimmed = not user-adjustable right now: desaturated and a little faded)
         auto slider = [&] (int idx, const juce::String& label,
-                           const juce::String& valStr, float frac)
+                           const juce::String& valStr, float frac, bool dimmed = false)
         {
+            auto dim = [dimmed] (juce::Colour c)
+                { return dimmed ? c.withMultipliedSaturation (0.3f).withMultipliedAlpha (0.6f) : c; };
             const float ry = L.ctrlRowY (idx);
-            begin (b); text (b, x0, ry, th, label); end (b, cBody);
+            begin (b); text (b, x0, ry, th, label); end (b, dim (cBody));
             begin (b);
             text (b, L.ctrlDnX(), ry, th, "<");
             text (b, L.ctrlUpX(), ry, th, ">");
-            end (b, cBright);
-            begin (b); text (b, L.ctrlValueX(), ry, th, valStr); end (b, cBright);
-            begin (b); meterBar (b, x0, ry + rh, barCells, juce::jlimit (0.0f, 1.0f, frac), th); end (b, cBlocks);
+            end (b, dim (cBright));
+            begin (b); text (b, L.ctrlValueX(), ry, th, valStr); end (b, dim (cBright));
+            begin (b); meterBar (b, x0, ry + rh, barCells, juce::jlimit (0.0f, 1.0f, frac), th); end (b, dim (cBlocks));
         };
 
         // RESEED — action button
@@ -586,6 +592,18 @@ private:
                   + "/" + juce::String (in.inputCount).paddedLeft ('0', 2));
             end (b, cBright);
             begin (b); text (b, x0, ry + rh, th, src); end (b, cBright);
+        }
+        // AUTO GAIN — toggle; GAIN — manual input gain, dimmed and tracking the live
+        // auto-gain boost while auto is on
+        {
+            const float ry = L.ctrlRowY (ScreenLayout::ctAutoGain);
+            begin (b); text (b, x0, ry, th, "AUTOGAIN"); end (b, cBody);
+            begin (b); text (b, L.ctrlValX, ry, th, in.autoGain ? "[ ON  ]" : "[ OFF ]"); end (b, cBright);
+            begin (b); text (b, x0, ry + rh, th, in.autoGain ? "LEVEL TRACKED" : "MANUAL LEVEL"); end (b, cBody);
+
+            const float g = in.autoGain ? in.feats.gainDb : gainShown;
+            slider (ScreenLayout::ctGain, "GAIN", juce::String::formatted ("%+3.0fDB", g),
+                    (g + 10.0f) / 60.0f, in.autoGain);
         }
         // DEFAULTS — two-step factory reset of the look (sliders, palette, hue lock)
         {

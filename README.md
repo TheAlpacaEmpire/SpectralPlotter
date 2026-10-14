@@ -24,7 +24,9 @@ time: click **More info → Run anyway**.
 
 By default the app captures the system's default playback device (WASAPI loopback), so just
 play some music. Press **I** / **Shift+I** (or click the **SOURCE** arrows) to step through
-other output and input devices — microphones and line-in work too.
+other output and input devices — microphones and line-in work too. Auto-gain keeps the
+visual lively at any playback volume; switch it off (**AUTOGAIN** on the control panel, or
+**G**) to set the input level yourself with the **GAIN** slider.
 
 | Key            | Action                                        |
 | -------------- | --------------------------------------------- |
@@ -32,6 +34,7 @@ other output and input devices — microphones and line-in work too.
 | `T` / `Shift+T` | Next / previous colour palette               |
 | `L`            | Lock / unlock the hue                         |
 | `I` / `Shift+I` | Next / previous audio source                 |
+| `G`            | Toggle auto-gain                              |
 | `F` / `F11`    | Toggle fullscreen (`Esc` exits fullscreen)    |
 | `[` / `]`      | Phosphor persistence down / up                |
 | `-` / `=`      | Bloom down / up                               |
@@ -46,7 +49,7 @@ or use its `< >` steppers. Drag the header bar to move the window; the header's 
 
 - Settings (sliders, palette, audio source, window placement) are saved on exit to
   `%APPDATA%\SpectralPlotter\SpectralPlotter.settings`. **[ RESET ]** on the control panel (or
-  `R` twice) restores the default sliders, palette and hue lock; deleting the file resets
+  `R` twice) restores the default sliders, palette, hue lock and auto-gain; deleting the file resets
   everything, including the audio source and window placement.
 - Screenshots go to `Pictures\Spectral Plotter`.
 

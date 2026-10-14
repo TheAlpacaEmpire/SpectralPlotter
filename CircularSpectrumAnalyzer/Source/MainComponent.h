@@ -210,6 +210,8 @@ private:
     std::atomic<float> hatchVal       { 0.65f };   // scene: slope-hachure strength
     std::atomic<float> stippleVal     { 0.045f };  // scene: hypsometric stipple strength
     std::atomic<float> slopeVal       { 12.0f };   // scene: slope exaggeration (uSlopeK)
+    std::atomic<bool>  autoGainOn     { true };    // analyzer auto-gain (GAIN slider dims while on)
+    std::atomic<float> gainVal        { 0.0f };    // manual input gain, dB (used when auto-gain is off)
     std::atomic<float> effDecay       { 0.0f };
     std::atomic<float> effBloom       { 0.0f };
 

@@ -53,9 +53,10 @@ struct ScreenLayout
     // one primary row; sliders add a value bar on the row below. The text
     // builder places labels/values from these anchors and the message thread
     // hit-tests the same rects, so drawn glyphs and clickable areas always agree.
-    enum { ctReseed = 0, ctLock, ctTheme, ctInput, ctReset, ctPersist, ctBloom, ctThresh, ctScan, ctCrt,
-           ctShade, ctHatch, ctStipple, ctSlope, numCtrl };
-    static constexpr int ctFirstSlider = ctPersist;   // ctPersist..numCtrl-1 are value sliders
+    enum { ctReseed = 0, ctLock, ctTheme, ctInput, ctAutoGain, ctGain, ctReset, ctPersist, ctBloom,
+           ctThresh, ctScan, ctCrt, ctShade, ctHatch, ctStipple, ctSlope, numCtrl };
+    // ctGain..numCtrl-1 are value sliders, except ctReset (a button; knobFor returns no knob).
+    static constexpr int ctFirstSlider = ctGain;
     static constexpr float ctrlLabelChars = 9.0f;   // label field width, chars
     bool  ctrlValid   = false;
     float ctrlY0      = 0.0f;                // top of the first control row

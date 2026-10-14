@@ -115,6 +115,7 @@ MainComponent::Knob MainComponent::knobFor (int ctrlIndex) noexcept
         case ScreenLayout::ctHatch:   return { &hatchVal,        0.00f, 1.00f, 0.05f  };
         case ScreenLayout::ctStipple: return { &stippleVal,      0.00f, 0.12f, 0.005f };
         case ScreenLayout::ctSlope:   return { &slopeVal,        4.00f, 24.0f, 1.00f  };
+        case ScreenLayout::ctGain:    return { &gainVal,       -10.0f, 50.0f, 2.00f  };
         default:                      return {};
     }
 }
@@ -200,6 +201,7 @@ bool MainComponent::keyPressed (const juce::KeyPress& key)
         case 's': screenshotRequested = true;   return true;   // dump scene FBO to PNG
         case 'n': reseed();                     return true;   // same as [ NEW SEED ]
         case 'l': hueLocked = ! hueLocked;      return true;
+        case 'g': autoGainOn = ! autoGainOn;    return true;   // auto-gain on / off
         case 't': cycleTheme (key.getModifiers().isShiftDown() ? -1 : 1);
                   return true;                                 // next / previous palette
         case 'i': cycleInput (key.getModifiers().isShiftDown() ? -1 : 1);
@@ -298,10 +300,13 @@ void MainComponent::mouseUp (const juce::MouseEvent& e)
         else if (L.ctrlDn[ScreenLayout::ctInput]    .contains (p)) cycleInput (-1);
         else if (L.ctrlUp[ScreenLayout::ctInput]    .contains (p)) cycleInput (+1);
         else if (L.ctrlAction[ScreenLayout::ctReset] .contains (p)) requestReset();
+        else if (L.ctrlAction[ScreenLayout::ctAutoGain].contains (p)) autoGainOn = ! autoGainOn;
         else                                                        // value sliders
         {
             for (int i = ScreenLayout::ctFirstSlider; i < ScreenLayout::numCtrl; ++i)
             {
+                if (i == ScreenLayout::ctGain && autoGainOn.load())   // dimmed: auto-gain drives it
+                    continue;
                 if      (L.ctrlDn[i].contains (p)) { stepKnob (i, -1.0f); break; }
                 else if (L.ctrlUp[i].contains (p)) { stepKnob (i, +1.0f); break; }
                 else if (L.ctrlBar[i].contains (p))   // click anywhere on the bar to set
@@ -559,6 +564,7 @@ void MainComponent::renderOpenGL()
             in.shaderError = sceneRenderer.getLastShaderError().isNotEmpty();
             in.fullscreen  = fullscreenFlag.load();   // published by the message thread
             in.resetArmed  = juce::Time::getMillisecondCounter() < resetArmedUntil.load();
+            in.autoGain    = autoGainOn.load();
             screenText.persistShown = persistTrimVal.load();
             screenText.bloomShown   = bloomTrimVal.load();
             screenText.threshShown  = bloomThreshVal.load();
@@ -568,6 +574,7 @@ void MainComponent::renderOpenGL()
             screenText.hatchShown   = hatchVal.load();
             screenText.stippleShown = stippleVal.load();
             screenText.slopeShown   = slopeVal.load();
+            screenText.gainShown    = gainVal.load();
 
             uiGlyphs.clear();
             screenText.build (uiGlyphs, slUI, in);
@@ -1105,6 +1112,8 @@ void MainComponent::timerCallback()
         hasGrabbedFocus = hasKeyboardFocus (true);
     }
 
+    audio.setAutoGain (autoGainOn.load());
+    audio.setManualGainDb (gainVal.load());
     audio.update();
 
     const auto& feats = audio.getFeatures();
@@ -1254,6 +1263,7 @@ namespace
         { ScreenLayout::ctCrt,     "crt"     }, { ScreenLayout::ctShade,   "shade"   },
         { ScreenLayout::ctHatch,   "hatch"   }, { ScreenLayout::ctStipple, "stipple" },
         { ScreenLayout::ctSlope,   "slope"   },
+        { ScreenLayout::ctGain,    "gain"    },
     };
 }
 
@@ -1282,6 +1292,7 @@ void MainComponent::loadSettings()
                    ? juce::jmax (0, Themes::findByName (Themes::kLegacyNames[legacy])) : 0;
     }
     hueLocked  = p.getBoolValue ("hueLocked", hueLocked.load());
+    autoGainOn = p.getBoolValue ("autoGain", autoGainOn.load());
     audio.setPreferredDeviceId (p.getValue ("audioSource"));
 }
 
@@ -1299,7 +1310,7 @@ void MainComponent::requestReset()
     }
 }
 
-// Restores the factory look: every slider, the palette and the hue lock. The audio source
+// Restores the factory look: every slider, the palette, the hue lock and auto-gain. The audio source
 // and window placement are left alone — they're environment, not style.
 void MainComponent::resetToDefaults()
 {
@@ -1309,6 +1320,7 @@ void MainComponent::resetToDefaults()
 
     themeIndex = 0;
     hueLocked  = false;
+    autoGainOn = true;
 }
 
 void MainComponent::saveSettings()
@@ -1325,6 +1337,7 @@ void MainComponent::saveSettings()
     p.setValue ("themeName",   juce::String (Themes::get (themeIndex).name));
     p.removeValue ("theme");                                  // legacy 1.0.0 index key
     p.setValue ("hueLocked",   hueLocked.load());
+    p.setValue ("autoGain",    autoGainOn.load());
     p.setValue ("audioSource", audio.getCurrentDeviceId());
 
     if (auto* window = getTopLevelComponent())

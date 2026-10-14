@@ -177,6 +177,24 @@ void AudioAnalyzer::analyzeBlock()
         }
     }
 
+    // Automatic gain (see peakRefDb): follow the loudest weighted band, jumping up quickly
+    // and falling back slowly, ignoring silence so a pause doesn't crank the boost.
+    {
+        float framePeakDb = -100.0f;
+        for (int b = 0; b < numBands; ++b)
+            framePeakDb = juce::jmax (framePeakDb, juce::Decibels::gainToDecibels (mag[b], -100.0f) + bandWeightDb[b]);
+
+        if (framePeakDb > peakRefDb)
+            peakRefDb += (framePeakDb - peakRefDb) * 0.3f;   // ~70 ms at ~47 analysis frames/s
+        else if (framePeakDb > agcGateDb)
+            peakRefDb = juce::jmax (framePeakDb, peakRefDb - agcReleaseDbPerS * (float) hopSize / sr);
+    }
+    // The reference keeps tracking while auto-gain is off, so re-enabling it doesn't jump.
+    // Applied linearly so digital silence stays at the -100 dB floor instead of being lifted.
+    const float gainDb  = autoGainOn.load() ? juce::jlimit (0.0f, agcMaxBoostDb, agcTargetDb - peakRefDb)
+                                            : manualGainDb.load();
+    const float agcGain = juce::Decibels::decibelsToGain (gainDb);
+
     // Soft Wiener masks split the band magnitude into harmonic/percussive streams, then
     // B (perceptual weighting) + normalisation, then A (adaptive smoothing) per band.
     // C (spectral flux) is measured on the *normalised percussive target* so it is
@@ -185,7 +203,7 @@ void AudioAnalyzer::analyzeBlock()
     // previous frame's percussive target for this purpose.
     auto toNorm = [&] (float m, int b)
     {
-        const float db = juce::Decibels::gainToDecibels (m, -100.0f) + bandWeightDb[b];
+        const float db = juce::Decibels::gainToDecibels (m * agcGain, -100.0f) + bandWeightDb[b];
         return juce::jlimit (0.0f, 1.0f, juce::jmap (db, -60.0f, 0.0f, 0.0f, 1.0f));
     };
 
@@ -236,6 +254,7 @@ void AudioAnalyzer::analyzeBlock()
     f.percussive   = percEnv;
     f.flux         = fluxBand;
     f.centroidNorm = centroidNorm;
+    f.gainDb       = gainDb;
 
     float overall = 0.0f, bass = 0.0f, high = 0.0f;
     for (int b = 0; b < numBands; ++b)
