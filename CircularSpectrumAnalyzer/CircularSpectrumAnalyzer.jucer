@@ -1,0 +1,85 @@
+<?xml version="1.0" encoding="UTF-8"?>
+
+<JUCERPROJECT id="dwIt3M" name="CircularSpectrumAnalyzer" projectType="guiapp"
+              useAppConfig="0" addUsingNamespaceToJuceHeader="0" jucerFormatVersion="1">
+  <MAINGROUP id="QkzGc5" name="CircularSpectrumAnalyzer">
+    <GROUP id="{44CA13A6-1DFA-9058-95C9-C558C56580F8}" name="Source">
+      <FILE id="LuaGPd" name="Main.cpp" compile="1" resource="0" file="Source/Main.cpp"/>
+      <FILE id="rWQ9SU" name="MainComponent.h" compile="0" resource="0" file="Source/MainComponent.h"/>
+      <FILE id="VOJ51G" name="MainComponent.cpp" compile="1" resource="0"
+            file="Source/MainComponent.cpp"/>
+      <GROUP id="{A1B2C3D4-0001-4001-8001-000000000001}" name="Audio">
+        <FILE id="AaAnA1" name="AudioAnalyzer.h" compile="0" resource="0" file="Source/Audio/AudioAnalyzer.h"/>
+        <FILE id="AaAnA2" name="AudioAnalyzer.cpp" compile="1" resource="0" file="Source/Audio/AudioAnalyzer.cpp"/>
+        <FILE id="AaBdG1" name="BandGroups.h" compile="0" resource="0" file="Source/Audio/BandGroups.h"/>
+      </GROUP>
+      <GROUP id="{A1B2C3D4-0002-4002-8002-000000000002}" name="Terrain">
+        <FILE id="TrNoU1" name="NoiseUtils.h" compile="0" resource="0" file="Source/Terrain/NoiseUtils.h"/>
+        <FILE id="TrNoU2" name="NoiseUtils.cpp" compile="1" resource="0" file="Source/Terrain/NoiseUtils.cpp"/>
+        <FILE id="TrTeM1" name="TerrainModel.h" compile="0" resource="0" file="Source/Terrain/TerrainModel.h"/>
+        <FILE id="TrTeM2" name="TerrainModel.cpp" compile="1" resource="0" file="Source/Terrain/TerrainModel.cpp"/>
+      </GROUP>
+      <GROUP id="{A1B2C3D4-0004-4004-8004-000000000004}" name="PostFX">
+        <FILE id="PfGlP1" name="GLProgram.h" compile="0" resource="0" file="Source/PostFX/GLProgram.h"/>
+        <FILE id="PfShd1" name="Shaders.h" compile="0" resource="0" file="Source/PostFX/Shaders.h"/>
+        <FILE id="PfPip1" name="PostFXPipeline.h" compile="0" resource="0" file="Source/PostFX/PostFXPipeline.h"/>
+        <FILE id="PfPip2" name="PostFXPipeline.cpp" compile="1" resource="0" file="Source/PostFX/PostFXPipeline.cpp"/>
+        <FILE id="PfScS1" name="SceneShaders.h" compile="0" resource="0" file="Source/PostFX/SceneShaders.h"/>
+        <FILE id="PfScR1" name="SceneRenderer.h" compile="0" resource="0" file="Source/PostFX/SceneRenderer.h"/>
+        <FILE id="PfScR2" name="SceneRenderer.cpp" compile="1" resource="0" file="Source/PostFX/SceneRenderer.cpp"/>
+      </GROUP>
+      <GROUP id="{A1B2C3D4-0003-4003-8003-000000000003}" name="River">
+        <FILE id="RvRiM1" name="RiverModel.h" compile="0" resource="0" file="Source/River/RiverModel.h"/>
+        <FILE id="RvRiM2" name="RiverModel.cpp" compile="1" resource="0" file="Source/River/RiverModel.cpp"/>
+      </GROUP>
+    </GROUP>
+  </MAINGROUP>
+  <MODULES>
+    <MODULE id="juce_analytics" showAllCode="1" useLocalCopy="0" useGlobalPath="1"/>
+    <MODULE id="juce_animation" showAllCode="1" useLocalCopy="0" useGlobalPath="1"/>
+    <MODULE id="juce_audio_basics" showAllCode="1" useLocalCopy="0" useGlobalPath="1"/>
+    <MODULE id="juce_audio_devices" showAllCode="1" useLocalCopy="0" useGlobalPath="1"/>
+    <MODULE id="juce_audio_formats" showAllCode="1" useLocalCopy="0" useGlobalPath="1"/>
+    <MODULE id="juce_audio_processors" showAllCode="1" useLocalCopy="0" useGlobalPath="1"/>
+    <MODULE id="juce_audio_processors_headless" showAllCode="1" useLocalCopy="0"
+            useGlobalPath="1"/>
+    <MODULE id="juce_audio_utils" showAllCode="1" useLocalCopy="0" useGlobalPath="1"/>
+    <MODULE id="juce_core" showAllCode="1" useLocalCopy="0" useGlobalPath="1"/>
+    <MODULE id="juce_data_structures" showAllCode="1" useLocalCopy="0" useGlobalPath="1"/>
+    <MODULE id="juce_dsp" showAllCode="1" useLocalCopy="0" useGlobalPath="1"/>
+    <MODULE id="juce_events" showAllCode="1" useLocalCopy="0" useGlobalPath="1"/>
+    <MODULE id="juce_graphics" showAllCode="1" useLocalCopy="0" useGlobalPath="1"/>
+    <MODULE id="juce_gui_basics" showAllCode="1" useLocalCopy="0" useGlobalPath="1"/>
+    <MODULE id="juce_gui_extra" showAllCode="1" useLocalCopy="0" useGlobalPath="1"/>
+    <MODULE id="juce_opengl" showAllCode="1" useLocalCopy="0" useGlobalPath="1"/>
+    <MODULE id="juce_video" showAllCode="1" useLocalCopy="0" useGlobalPath="1"/>
+  </MODULES>
+  <JUCEOPTIONS JUCE_STRICT_REFCOUNTEDPOINTER="1"/>
+  <EXPORTFORMATS>
+    <VS2026 targetFolder="Builds/VisualStudio2026">
+      <CONFIGURATIONS>
+        <CONFIGURATION isDebug="1" name="Debug" targetName="CircularSpectrumAnalyzer"/>
+        <CONFIGURATION isDebug="0" name="Release" targetName="CircularSpectrumAnalyzer"/>
+      </CONFIGURATIONS>
+      <MODULEPATHS>
+        <MODULEPATH id="juce_analytics" path="../../../../JUCE/modules"/>
+        <MODULEPATH id="juce_animation" path="../../../../JUCE/modules"/>
+        <MODULEPATH id="juce_audio_basics" path="../../../../JUCE/modules"/>
+        <MODULEPATH id="juce_audio_devices" path="../../../../JUCE/modules"/>
+        <MODULEPATH id="juce_audio_formats" path="../../../../JUCE/modules"/>
+        <MODULEPATH id="juce_audio_processors" path="../../../../JUCE/modules"/>
+        <MODULEPATH id="juce_audio_processors_headless" path="../../../../JUCE/modules"/>
+        <MODULEPATH id="juce_audio_utils" path="../../../../JUCE/modules"/>
+        <MODULEPATH id="juce_core" path="../../../../JUCE/modules"/>
+        <MODULEPATH id="juce_data_structures" path="../../../../JUCE/modules"/>
+        <MODULEPATH id="juce_dsp" path="../../../../JUCE/modules"/>
+        <MODULEPATH id="juce_events" path="../../../../JUCE/modules"/>
+        <MODULEPATH id="juce_graphics" path="../../../../JUCE/modules"/>
+        <MODULEPATH id="juce_gui_basics" path="../../../../JUCE/modules"/>
+        <MODULEPATH id="juce_gui_extra" path="../../../../JUCE/modules"/>
+        <MODULEPATH id="juce_opengl" path="../../../../JUCE/modules"/>
+        <MODULEPATH id="juce_video" path="../../../../JUCE/modules"/>
+      </MODULEPATHS>
+    </VS2026>
+  </EXPORTFORMATS>
+</JUCERPROJECT>

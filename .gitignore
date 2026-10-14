@@ -1,0 +1,18 @@
+# Build outputs (Projucer-generated project files are kept; only artefacts are ignored)
+CircularSpectrumAnalyzer/Builds/**/x64/
+CircularSpectrumAnalyzer/Builds/**/.vs/
+CircularSpectrumAnalyzer/Builds/**/*.user
+*.VC.db
+*.aps
+
+# Release packaging
+dist/
+
+# Runtime output
+Screenshots/
+assert_log.txt
+
+# Local tooling
+.claude/settings.local.json
+.claude/scheduled_tasks.lock
+CircularSpectrumAnalyzer/Builds/**/.idea/
