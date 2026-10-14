@@ -8,12 +8,17 @@ across the screen — drawn like an old war-room terminal: green phosphor, scanl
 persistence and barrel distortion. The whole window is the screen; every readout, control
 and label is part of the CRT image.
 
+**[⬇ Download the latest release for Windows](https://github.com/TheAlpacaEmpire/SpectralPlotter/releases/latest)**
+
 ## Requirements
 
 - Windows 10 or 11 (64-bit)
 - A GPU with OpenGL 3.2 or newer
 
 No installer and no runtime redistributables are needed: unzip and run `SpectralPlotter.exe`.
+
+The app isn't code-signed, so Windows SmartScreen may say "Windows protected your PC" the first
+time: click **More info → Run anyway**.
 
 ## Usage
 
