@@ -351,7 +351,9 @@ void MainComponent::publishSnapshot()
     shared.liveElevFill   = liveElevFill;
     shared.liveBg         = liveBg;
     shared.liveDecayBias  = liveDecayBias;
-    shared.liveThermal    = liveThermal;
+    shared.liveRampMix    = liveRampMix;
+    shared.liveRampGamma  = liveRampGamma;
+    for (int i = 0; i < 5; ++i) shared.liveRamp[i] = liveRamp[i];
     shared.liveLowDim     = liveLowDim;
     shared.livePhosphor   = livePhosphor;
     shared.liveGrain      = liveGrain;
@@ -465,7 +467,9 @@ void MainComponent::renderOpenGL()
         f.elevHueSpread  = glLocal.liveElevSpread;
         f.elevFill       = glLocal.liveElevFill;
         f.bgTint         = glLocal.liveBg;
-        f.thermal        = glLocal.liveThermal;
+        f.rampMix        = glLocal.liveRampMix;
+        f.rampGamma      = glLocal.liveRampGamma;
+        for (int i = 0; i < 5; ++i) f.ramp[i] = glLocal.liveRamp[i];
         f.lowDim         = glLocal.liveLowDim;
         f.shadeStrength  = shadeVal.load();
         f.slopeK         = slopeVal.load();
@@ -1142,7 +1146,15 @@ void MainComponent::timerCallback()
         ease (liveHal,  t.halation);
         ease (liveElevSpread, t.elevHueSpread);
         ease (liveElevFill,   t.elevFill);
-        ease (liveThermal,    t.thermal);
+        ease (liveRampMix,    t.rampMix);
+        if (t.rampMix > 0.0f)   // only ramp themes steer the stops, so switching away never
+        {                       // fades through a meaningless (all-zero) ramp
+            ease (liveRampGamma, t.rampGamma);
+            for (int i = 0; i < 5; ++i)
+            {
+                ease (liveRamp[i].r, t.ramp[i].r); ease (liveRamp[i].g, t.ramp[i].g); ease (liveRamp[i].b, t.ramp[i].b);
+            }
+        }
         ease (liveLowDim,     t.lowDim);
         ease (liveBg.r, t.bgTint.r); ease (liveBg.g, t.bgTint.g); ease (liveBg.b, t.bgTint.b);
         ease (liveDecayBias.r, t.decayBias.r); ease (liveDecayBias.g, t.decayBias.g); ease (liveDecayBias.b, t.decayBias.b);

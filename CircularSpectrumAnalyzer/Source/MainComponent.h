@@ -70,7 +70,9 @@ private:
         float liveElevSpread = 0.015f, liveElevFill = 0.0f;   // elevation hue ramp
         Themes::Tint liveBg        { 0.012f, 0.031f, 0.012f };   // map-box background wash
         Themes::Tint liveDecayBias { 0.0f, 0.03f, 0.0f };      // per-channel persistence bias
-        float liveThermal = 0.0f, liveLowDim = 0.0f;
+        float liveRampMix = 0.0f, liveLowDim = 0.0f;
+        float liveRampGamma = 1.0f;                       // false-colour ramp (eased only toward ramp themes)
+        Themes::Tint liveRamp[5] {};
         Themes::Tint livePhosphor { 0.93f, 1.04f, 0.95f };
         Themes::Tint liveGrain    { 0.55f, 1.00f, 0.62f };
         uint32_t seed = 0;
@@ -162,7 +164,9 @@ private:
     float liveElevSpread = 0.015f, liveElevFill = 0.0f;   // elevation hue ramp
     Themes::Tint liveBg        { 0.012f, 0.031f, 0.012f };   // map-box background wash
     Themes::Tint liveDecayBias { 0.0f, 0.03f, 0.0f };      // per-channel persistence bias
-    float liveThermal = 0.0f, liveLowDim = 0.0f;
+    float liveRampMix = 0.0f, liveLowDim = 0.0f;
+    float liveRampGamma = 1.0f;                       // false-colour ramp (eased only toward ramp themes)
+    Themes::Tint liveRamp[5] {};
     Themes::Tint livePhosphor { 0.93f, 1.04f, 0.95f };
     Themes::Tint liveGrain    { 0.55f, 1.00f, 0.62f };
 

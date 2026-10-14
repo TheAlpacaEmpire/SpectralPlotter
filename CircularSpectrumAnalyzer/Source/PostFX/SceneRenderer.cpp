@@ -299,7 +299,11 @@ void SceneRenderer::renderScene (const Frame& f,
     sceneProg->setUniform ("uElevSpread",  f.elevHueSpread);
     sceneProg->setUniform ("uElevFill",    f.elevFill);
     sceneProg->setUniform ("uBgTint",      f.bgTint.r, f.bgTint.g, f.bgTint.b);
-    sceneProg->setUniform ("uThermal",     f.thermal);
+    sceneProg->setUniform ("uRampMix",     f.rampMix);
+    sceneProg->setUniform ("uRampGamma",   f.rampGamma);
+    static constexpr const char* rampNames[5] = { "uRamp0", "uRamp1", "uRamp2", "uRamp3", "uRamp4" };
+    for (int i = 0; i < 5; ++i)
+        sceneProg->setUniform (rampNames[i], f.ramp[i].r, f.ramp[i].g, f.ramp[i].b);
     sceneProg->setUniform ("uLowDim",      f.lowDim);
     sceneProg->setUniform ("uBass",        f.bassEnergy);
     sceneProg->setUniform ("uEnergy",      f.overallEnergy);

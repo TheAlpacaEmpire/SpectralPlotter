@@ -59,13 +59,19 @@ struct Theme
     // green tail).
     Tint  decayBias;
 
-    // 0..1 blend from the hue ramp to a false-colour thermal ramp (indigo ->
-    // purple -> red -> orange -> white) by elevation, for contours and fill.
-    float thermal;
+    // 0..1 blend from the hue ramp to this theme's false-colour ramp (ramp[] below)
+    // by elevation, for contours and fill. 0 = plain hue ramp; ramp[] is ignored.
+    float rampMix;
 
     // 0..1 darkening of the lowest elevation bands, easing to none at the summits
     // (contours and fill). Tames themes whose low end lands on a bright hue.
     float lowDim;
+
+    // False-colour ramp used when rampMix > 0: five stops from valley floor to summit,
+    // spaced evenly after x^rampGamma (< 1 spends more of the ramp on low ground).
+    // Themes that do not use it leave these zero.
+    float rampGamma;
+    Tint  ramp[5];
 };
 
 // Index 0 is the untouched default (and the factory reset). The rest run round
@@ -120,6 +126,14 @@ static constexpr Theme kThemes[] =
       0.010f, 0.060f, { 1.14f, 0.74f, 0.72f }, { 1.00f, 0.36f, 0.34f }, 0.80f, 1.25f,
       0.020f, 0.70f, { 0.035f, 0.006f, 0.006f }, { 0.00f, 0.03f, 0.00f }, 0.0f, 0.00f },
 
+    // MAGMA 1200 — near-black crust with cracks glowing deep red, rising through
+    // orange to white-hot summits; red persistence lingers like cooling lava.
+    { "MAGMA 1200", 0.030f, 0.02f, 0.02f, 0.000f, 0.060f, 1.00f,
+      0.000f, 0.080f, { 1.12f, 0.86f, 0.70f }, { 1.00f, 0.45f, 0.15f }, 0.90f, 1.30f,
+      0.000f, 1.00f, { 0.020f, 0.004f, 0.002f }, { 0.10f, 0.00f, -0.05f }, 1.0f, 0.30f,
+      0.55f, { { 0.30f, 0.03f, 0.02f }, { 0.85f, 0.14f, 0.02f }, { 1.00f, 0.38f, 0.03f },
+               { 1.00f, 0.65f, 0.10f }, { 1.00f, 0.95f, 0.70f } } },
+
     // SODIUM 589 — street-lamp red-orange between INFRA P22 and AMBER P3; its ramp
     // runs the other way (orange valleys, red summits).
     { "SODIUM 589", 0.055f, 0.010f, 0.020f, 0.040f, 0.075f, 1.00f,
@@ -129,7 +143,9 @@ static constexpr Theme kThemes[] =
     // THERMAL LW — false-colour heat map by elevation; louder mixes run hotter.
     { "THERMAL LW", 0.060f, 0.02f, 0.02f, 0.030f, 0.090f, 1.00f,
       0.830f, 0.150f, { 1.05f, 0.95f, 0.92f }, { 1.00f, 0.60f, 0.30f }, 1.00f, 1.10f,
-      0.000f, 1.00f, { 0.020f, 0.005f, 0.030f }, { 0.03f, 0.00f, -0.02f }, 1.0f, 0.00f },
+      0.000f, 1.00f, { 0.020f, 0.005f, 0.030f }, { 0.03f, 0.00f, -0.02f }, 1.0f, 0.00f,
+      0.65f, { { 0.45f, 0.25f, 1.00f }, { 0.85f, 0.20f, 0.85f }, { 1.00f, 0.12f, 0.18f },
+               { 1.00f, 0.62f, 0.05f }, { 1.00f, 1.00f, 0.85f } } },
 
     // AMBER P3 — warm monochrome terminal; red-orange valleys to gold summits.
     { "AMBER P3", 0.090f, 0.05f, 0.03f, 0.060f, 0.120f, 0.90f,
@@ -146,6 +162,14 @@ static constexpr Theme kThemes[] =
     { "LIME P1", 0.250f, 0.10f, 0.08f, 0.200f, 0.310f, 0.95f,
       0.000f, 0.550f, { 0.98f, 1.06f, 0.80f }, { 0.75f, 1.00f, 0.35f }, 1.00f, 1.10f,
       0.025f, 1.00f, { 0.022f, 0.030f, 0.006f }, { 0.00f, 0.03f, 0.00f }, 0.0f, 0.00f },
+
+    // NVG P43 — image-intensifier night vision: dim, heavily grained green valleys,
+    // high ground blooming out to white like an overdriven tube.
+    { "NVG P43", 0.330f, 0.02f, 0.02f, 0.310f, 0.350f, 0.85f,
+      0.300f, 0.400f, { 0.92f, 1.06f, 0.92f }, { 0.90f, 1.60f, 0.90f }, 0.80f, 1.50f,
+      0.000f, 1.00f, { 0.015f, 0.040f, 0.015f }, { 0.00f, 0.04f, 0.00f }, 1.0f, 0.00f,
+      1.00f, { { 0.10f, 0.35f, 0.12f }, { 0.20f, 0.65f, 0.22f }, { 0.40f, 0.95f, 0.40f },
+               { 0.75f, 1.00f, 0.70f }, { 1.00f, 1.00f, 0.95f } } },
 };
 
 static constexpr int numThemes = (int) (sizeof (kThemes) / sizeof (kThemes[0]));

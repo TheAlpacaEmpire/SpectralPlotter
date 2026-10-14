@@ -44,7 +44,9 @@ public:
         float elevHueSpread  = 0.015f;       // per-theme hue offset per 10-level contour band
         float elevFill       = 0.0f;         // per-theme: how far the fill follows that ramp (0..1)
         Themes::Tint bgTint  { 0.012f, 0.031f, 0.012f };  // per-theme background wash (centre)
-        float thermal        = 0.0f;         // per-theme: blend to the false-colour thermal ramp
+        float rampMix        = 0.0f;         // per-theme: blend to the false-colour ramp below
+        float rampGamma      = 1.0f;         // per-theme ramp position gamma
+        Themes::Tint ramp[5] {};             // per-theme false-colour stops, valley -> summit
         float lowDim         = 0.0f;         // per-theme: darkening of the lowest elevation bands
         float shadeStrength  = 0.18f;        // hillshade master gain (UI slider)
         float slopeK         = 12.0f;        // height-to-grid slope scale (UI slider)

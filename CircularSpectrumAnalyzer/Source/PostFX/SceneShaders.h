@@ -29,7 +29,9 @@ uniform float uCaHighHue;
 uniform float uElevSpread;      // per-theme hue offset per 10-level contour band
 uniform float uElevFill;        // per-theme: how far the fill follows the elevation ramp
 uniform vec3  uBgTint;          // per-theme background wash at the map centre
-uniform float uThermal;         // per-theme blend to the false-colour thermal ramp
+uniform float uRampMix;         // per-theme blend to the false-colour ramp (0 = hue ramp only)
+uniform float uRampGamma;       // per-theme ramp position gamma (< 1 favours low ground)
+uniform vec3  uRamp0, uRamp1, uRamp2, uRamp3, uRamp4;   // per-theme ramp stops, valley -> summit
 uniform float uLowDim;          // per-theme darkening of the lowest elevation bands
 uniform float uBass;           // bass energy (mist thickness)
 uniform float uEnergy;          // overall song energy (analog beam intensity)
@@ -65,29 +67,25 @@ float hash21 (vec2 p)
     return fract (sin (dot (p, vec2 (127.1, 311.7))) * 43758.5453);
 }
 
-// False-colour heat ramp, x = 0 (valley floor) .. 1 (summit): indigo -> purple
-// -> red -> orange -> near-white. The low end stays bright enough to read as a
-// line, and the 0.65 gamma spends more of the ramp on low ground so a quiet,
-// flattish map still reaches red/orange on its higher contours.
-vec3 thermalRamp (float x)
+// Per-theme false-colour ramp, x = 0 (valley floor) .. 1 (summit), through five
+// stops spaced evenly after x^uRampGamma (THERMAL LW: indigo -> purple -> red ->
+// orange -> near-white at 0.65, which spends more of the ramp on low ground so a
+// quiet, flattish map still reaches red/orange on its higher contours). The gamma
+// guard keeps pow() finite for themes that never set it.
+vec3 colourRamp (float x)
 {
-    x = pow (clamp (x, 0.0, 1.0), 0.65) * 4.0;
-    vec3 c0 = vec3 (0.45, 0.25, 1.00);
-    vec3 c1 = vec3 (0.85, 0.20, 0.85);
-    vec3 c2 = vec3 (1.00, 0.12, 0.18);
-    vec3 c3 = vec3 (1.00, 0.62, 0.05);
-    vec3 c4 = vec3 (1.00, 1.00, 0.85);
-    if (x < 1.0) return mix (c0, c1, x);
-    if (x < 2.0) return mix (c1, c2, x - 1.0);
-    if (x < 3.0) return mix (c2, c3, x - 2.0);
-    return mix (c3, c4, x - 3.0);
+    x = pow (clamp (x, 0.0, 1.0), max (uRampGamma, 0.05)) * 4.0;
+    if (x < 1.0) return mix (uRamp0, uRamp1, x);
+    if (x < 2.0) return mix (uRamp1, uRamp2, x - 1.0);
+    if (x < 3.0) return mix (uRamp2, uRamp3, x - 2.0);
+    return mix (uRamp3, uRamp4, x - 3.0);
 }
 
-// Elevation-driven colour: the theme's hue ramp, blended toward the thermal ramp
-// at position x (0..1) by uThermal. v scales both, so callers keep their weights.
+// Elevation-driven colour: the theme's hue ramp, blended toward its false-colour
+// ramp at position x (0..1) by uRampMix. v scales both, so callers keep their weights.
 vec3 elevCol (float h, float x, float s, float v)
 {
-    return mix (hsv (h, s, v), thermalRamp (x) * v, uThermal);
+    return mix (hsv (h, s, v), colourRamp (x) * v, uRampMix);
 }
 
 // Smooth 2D value noise in [0,1] (used for the analog beam intensity along traces).
@@ -175,7 +173,7 @@ void main()
     // hachures). Centred so each band's fill matches its contours' hue on average.
     float bandF = clamp ((t - 1.0) / 10.0, 0.5, 5.5) - 3.0;
     float hueF  = fract (uHue + bandF * uElevSpread * uElevFill + 1.0);
-    // Thermal-ramp positions (lines stepped per band, fill continuous); louder
+    // False-colour ramp positions (lines stepped per band, fill continuous); louder
     // mixes run hotter.
     float heat  = 0.12 * uEnergy;
     float xLine = min (float (bucket), 5.0) / 5.0 + heat;
